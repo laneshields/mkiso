@@ -2955,7 +2955,7 @@ function print_help {
        return 1
    fi
 
-   # output the command-spacific usage banner
+   # output the command-specific usage banner
    _var=$(declare -p $_cmdHelpName)
    eval "readonly -a _lArray="${_var#*=}
 
