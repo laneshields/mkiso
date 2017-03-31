@@ -81,11 +81,18 @@ MKISO_WORKSPACE_ID=".mkiso_workspace_dir_$MKISO_ID_COOKIE"
 # '_' is replaced with ' ' at time of printing 
 # to help with proper indentation...
 #
+# The second empty line in each help array delimits between summary 
+# (displayed when mkiso.sh is issued w/o a command) and full help text
+# (dislayed when mkiso.sh is issued with too few or invalid parameters).
+#
+MKISO_HELP_EMPTY_LINE_COUNT=2
+
 declare -a aShowHelp
 aShowHelp[0]='mkiso.sh show --config=<config-file> ...'
 aShowHelp[1]=''
 aShowHelp[2]='_________Display mkiso.sh parameters.  Additional parameters may be provided'
 aShowHelp[3]='_________on the command line to override those provided in configuration file'
+# The empty line below delimits the summary displayed when no command is specified to mkiso.sh
 aShowHelp[4]=''
 aShowHelp[5]='--config: Path to configuration file. If an absolute path is not specified'
 aShowHelp[6]='__________The directory from which mkiso.sh is started is prepended. Strictly'
@@ -99,6 +106,7 @@ aCreateHelp[0]='mkiso.sh create --config=<config-file> [--iso-in=</path/to/input
 aCreateHelp[1]=''
 aCreateHelp[2]='_________Create a customized bootable ISO from an input distribution ISO plus'
 aCreateHelp[3]='_________mkiso.sh configuration and supporting files'
+# The empty line below delimits the summary displayed when no command is specified to mkiso.sh
 aCreateHelp[4]=''
 aCreateHelp[5]='--config:  Path to configuration file. If an absolute path is not specified'
 aCreateHelp[6]='__________The directory from which mkiso.sh is started is prepended. Strictly'
@@ -115,7 +123,8 @@ declare -a aTestHelp
 aTestHelp[0]='mkiso.sh test --config=<config-file> --iso-in=</path/to/input-iso> ...'
 aTestHelp[1]=''
 aTestHelp[2]='_________Install a customized bootable ISO created by mkiso.sh (or which has a'
-aTestHelp[3]='_________kickstart file stored at the top level directory'
+aTestHelp[3]='_________kickstart file stored at the top level directory)'
+# The empty line below delimits the summary displayed when no command is specified to mkiso.sh
 aTestHelp[4]=''
 aTestHelp[5]='--config: Path to configuration file. This is used primarily to provide overrides'
 aTestHelp[6]='__________to mkiso.sh parameters as an ISO is not actually being genereated'
@@ -131,6 +140,7 @@ aRpm2IsoHelp[2]=''
 aRpm2IsoHelp[3]='_________Create a customized bootable ISO from a distribution ISO plus'
 aRpm2IsoHelp[4]='_________a list of specific RPMs and mkiso.sh configuration plus'
 aRpm2IsoHelp[5]='_________supporting files.'
+# The empty line below delimits the summary displayed when no command is specified to mkiso.sh
 aRpm2IsoHelp[6]=''
 aRpm2IsoHelp[7]='--config:___Path to configuration file. If an absolute path is not specified'
 aRpm2IsoHelp[8]='____________The directory from which mkiso.sh is started is prepended. Strictly'
@@ -3021,7 +3031,9 @@ function print_cmd_help {
             printf "%s\n" "$_line"
             if [ "$_line" == '' ] ; then
                 _crlfcnt=$((_crlfcnt+1))
-                if [ $_crlfcnt -eq 2 ] ; then
+		# The second empty line in the command help arrays delimits
+		# summary text from the full help text.
+                if [ $_crlfcnt -eq ${MKISO_HELP_EMPTY_LINE_COUNT} ] ; then
                      break
                 fi
             fi
