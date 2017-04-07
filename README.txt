@@ -12,30 +12,233 @@
 +---------------------------------------------------------------------------
 
 Introduction:
+=============
+mkiso.sh is a command-line tool for creating bootable Linux ISOs.  
 
-mkiso.sh --config=myconfig.cfg --iso-in=/path/to/CentOS-Mnimal-1611.iso
+mkiso starts with a Linux distributed on an ISO.  For example,
+ CentOS-7-x86_64-Minimal-1611.iso is the default, which can be acquired via 
+SAMBA on the corporate network if no input file is specified on the command 
+line or in a  configuration file.
+
+Two commands can then be used to alter the ISO content to create a custom
+installation environment:
+
+1) mkiso.sh create
+2) mkiso rpm2iso
+
+The former relies heavily on packages and other parameters configured 
+in the configuration file to construct yum --installroot environment 
+which downloads the specified packaged and dependencies and populates a 
+new ISO which automatically installs (by use of an Anaconda kickstart file) 
+the packages requested. It also can stage a number of files, some of which can be
+altered per mkiso.sh run by use of templates to further customize
+the install processand its %pre and %post phases. 
+
+The latter is similar except that a file containg a list of rpms
+(from rpm -qa) is used as the package list rather than configuration
+or command line arguments.
+
+One other command of note, is:
+o mkiso.sh test
+
+This command takes a ISO, generates a single ISO-based yum repository,
+looks to the kickstart file for packages to install and performs a 
+yum install --installroot to give some degree certainty that the ISO might 
+actually install.
 
 
-Commands
-Base Paths
-Filenames
-Template Variables
-Package Lists
+There are currently two configuraion profiles in this repository one for
+a manual 128T install, an one for CentOS + a SALT minion.
 
-Commands
-=======
+Each has a configuration file and a associated directory of files:
 
-o create
- 
-Create an ISO including packages, package groups, and all resolved dependencies
+drwxrwxr-x 2 user group   4096 Mar 23 21:59 128t (128T ISO templates and other files)
+-rw-rw-r-- 1 user group   1172 Mar 24 03:24 128t.cfg (128T ISO configuration file)
+drwxrwxr-x 2 user group   4096 Mar 17 19:58 minion (CentOS + minion templates and other files)
+-rw-rw-r-- 1 user group   1164 Mar 17 19:55 minion.cfg (CentOS + minion ISO configuration file)
+-rwxrwxr-x 1 user group 104593 Mar 25 09:29 mkiso.sh (the ISO generation tool)
+-rw-rw-r-- 1 user group  16058 Mar 25 10:30 README.txt (this file)
+drwxrwxr-x 2 user group   4096 Mar 25 10:37 samples (samples directory)
 
-o show
+./128t:
+total 28
+-rw-r--r-- 1 user group 4017 Mar 17 19:55 128T-ks.cfg       (kick start file)
+-rw-r--r-- 1 user group 1874 Mar 17 19:55 128t-scripts.zip  (scripts used by SEs)
+-rw-r--r-- 1 user group 3322 Mar 23 20:21 128t-splash.png   (splash screen)
+-rw-r--r-- 1 user group 1694 Mar 17 19:55 efi-grub.cfg      (grub boot menu)
+-rw-r--r-- 1 user group  121 Mar 17 19:55 ifcfg-dpX         (interface config files)
+-rw-r--r-- 1 user group  228 Mar 17 19:55 ifcfg-mgmt        (interface config files)
+-rw-r--r-- 1 user group 3329 Mar 17 19:55 isolinux.cfg      (more boot menu config)
+-rw-rw-r-- 1 user group  302 Mar 17 19:55 README.txt        
 
-Lists Parameters without perfroming any operations
+./minion:
+total 16
+-rw-r--r-- 1 user group 1694 Mar 17 19:55 efi-grub.cfg  (grub boot menu)
+-rw-r--r-- 1 user group 3321 Mar 17 19:55 isolinux.cfg  (more boot menu config)
+-rw-rw-r-- 1 user group 3191 Mar 17 19:55 minion-ks.cfg (kick start file)
+-rw-rw-r-- 1 user group  302 Mar 17 19:55 README.txt
 
-o test
+./samples:
+-rw-r--r-- 1 user group 12879 Mar 25 10:56 sample_rpms.txt (rpm list from rpm-qa)
 
-Test installation of packages using an ISO source
+
++--------------------------------------------------------------------------
+| Usage:
++--------------------------------------------------------------------------
+
+Create Command:
+---------------
+The 'create' command is used to generate an ISO from a configuration file 
+which specifies which packages etc. should be installed etc. This also
+specifies the kickstart, grub, and additional files to be copied to the
+outut iso.  Some of these files are or can be templatized to allow for
+spefific values to be used for say the title of the Anaconda Image
+selection menu.
+
+Examples:
+
+mkiso.sh create --config=128t.cfg --iso-in=/path/to/CentOS-Mnimal-1611.iso
+
+--config=128t.cfg: config file in current directory to drive ISO generation
+		   currently 128t.cfg and minion.cfg are supported
+
+--iso-in:          Use /path/to/CentOS-Mnimal-1611.iso as the ISO input file
+                   to modify.
+
+                   Use default ISO target ($HOME/mkiso-workspace/128T.iso) as
+		   output
+
+
+mkiso.sh create --config=128t.cfg
+
+--config=128t.cfg: config file in current directory to drive ISO generation
+		   currently 128t.cfg and minion.cfg are supported
+
+                   Use default input ISO from corp samba mount.  You'll
+		   need to enter LDAP credentials for this.
+
+                   Use default ISO target ($HOME/mkiso-workspace/128T.iso) as
+		   output
+
+mkiso.sh create --config=128t.cfg --iso-out=/path/to/output.iso
+
+--config=128t.cfg: config file in current directory to drive ISO generation
+		   currently 128t.cfg and minion.cfg are supported
+
+                   Use default input ISO from corp samba mount.  You'll
+		   need to enter LDAP credentials for this.
+
+--iso-out:         Use path/to/output.iso as the output iso...
+		   output.  If only a filename (i.e. fubar.iso) is specified
+		   then $HOME/mkiso-workspace/fubar.isois used as the output
+		   ISO.
+
+
+
+test command:
+------------
+Tests installation of packages using an ISO source.  This command restricts
+the repositories available to yum to only the repository present on the ISO,
+and then invokes yum install into an installroot environment based on the
+packages specified for install in the ISO's kickstart file. This does not
+replace trying to boot the ISO on a VM or bare metal, as a means of validation,
+but it does provide some guidance that the ISO was correctly constructed.
+
+Examples:
+
+mkiso.sh test --config=128t.cfg --iso-in=~/mkiso-workspace/128T.iso
+
+--config=128t.cfg: config file in current directory to drive the test process.
+
+--iso-in:          Use /path/to/CentOS-Mnimal-1611.iso as the ISO input file
+                   to attempt the yum install.
+
+The samba mount is not available for this command as the default ISOs do
+not come equipped with a kickstart file, which this script uses to
+determine which packages to install.
+
+The following parameters from the command line and/or config file are overriden:
+
+o yum-conf  (yum parameters, because a single ISO-only repository is being used)
+o yum_repo_src_conf
+o yum_repo_src_path
+o yum_pki_src_path
+o yum_extra_args 
+o pkglist (package parameters because these are extracted from the kickstart file)
+o pkgdel
+o pkglast
+
+rpm2iso command:
+----------------
+This command takes an input ISO, strips out the packages (much like create), 
+replaces the packages with the items specified by the file value for the 
+--rpm-file parameter, and generates an output iso.
+
+The format of the --rpm-file parameter is simply a list of RPMS one can get
+by issuing rpm -qa on a linux system (the OS flavor had better match the
+one on the input ISO).
+
+Examples:
+
+mkiso.sh rpm2iso --config=128t.cfg --iso-in=/path/to/CentOS-Mnimal-1611.iso 
+	         --rpm-file=/path/to/rpm-list-file.txt      
+
+--config=128t.cfg: config file in current directory to drive ISO generation
+                   currently 128t.cfg and minion.cfg are supported
+
+--iso-in:          Use /path/to/CentOS-Mnimal-1611.iso as the ISO input file
+                   to modify.
+
+                   Use default ISO target ($HOME/mkiso-workspace/128T.iso) as
+                   output
+
+--rpm-file:        File containing explicit list of rpms generated by 'rpm -qa'
+
+
+mkiso.sh create --config=128t.cfg --rpm-file=/path/to/rpm-list-file.txt 
+
+--config=128t.cfg: config file in current directory to drive ISO generation
+                   currently 128t.cfg and minion.cfg are supported
+
+                   Use default input ISO from corp samba mount.  You'll
+                   need to enter LDAP credentials for this.
+
+                   Use default ISO target ($HOME/mkiso-workspace/128T.iso) as
+                   output
+
+--rpm-file:        File containing explicit list of rpms generated by 'rpm -qa'
+
+
+mkiso.sh create --config=128t.cfg --iso-out=/path/to/output.iso
+                   --rpm-file=/path/to/rpm-list-file.txt 
+
+--config=128t.cfg: config file in current directory to drive ISO generation
+                   currently 128t.cfg and minion.cfg are supported
+
+                   Use default input ISO from corp samba mount.  You'll
+                   need to enter LDAP credentials for this.
+
+--iso-out:         Use path/to/output.iso as the output iso...
+                   output.  If only a filename (i.e. fubar.iso) is specified
+                   then $HOME/mkiso-workspace/fubar.isois used as the output
+                   ISO.
+
+--rpm-file:        File containing explicit list of rpms generated by 'rpm -qa'
+
+
+show command:
+       This command is a mock command -- it runs through argument processing
+       and performs minimal error checking, but it does not create or test an 
+       ISO -- it just shows how the parameter list is populated.
+
+
++-------------------------------------------------------------------------------
+|
+| Details.....
+| ------------
+| Read further if you are interested in overiding parameters or creating your 
+| own configuration files
++-------------------------------------------------------------------------------
 
 Parameters:
 ===========
@@ -265,4 +468,6 @@ template=efi-grub.cfg,EFI/BOOT/grub.cfg
 template=isolinux.cfg,isolinux/isolinux.cfg
 # where to find templates and misc files
 config-path=128t-iso
+
+
 
