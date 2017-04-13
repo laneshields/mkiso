@@ -239,15 +239,49 @@ function show_error {
     local _prestr=${TERMINAL_COLOR_RED}
     local _prestr=${_prestr}${TERMINAL_STYLE_BOLD}
     local _poststr=${TERMINAL_STYLE_NORMAL}
+    local _str=''
+    local _pstr=''
+    local _strunc=''
+    local _maxlen=78
+    local _lc=0
+    local _spacendx=0
+
     _fmt=$1
     if [ -z "$_fmt" ] ; then
         return 1
     fi
-    shift 
+    shift
+
+    _str=$(printf "$_fmt" "$@")
+    _strunc=${_str#*:}
+    _colndx=$((${#_str} - ${#_strunc} + 1))
+    while [ $_colndx -gt 0 ] ; do 
+       _indent="$_indent "
+       _colndx=$((_colndx-1))
+    done
     printf "\n"
     printf "${_prestr}+-------------------------------------------------------------------------------\n${_poststr}" 
-    printf "${_prestr}| $_fmt${_poststr}" $@
-    printf "${_prestr}+-------------------------------------------------------------------------------\n${_poststr}"
+    while [ "$_str" != '' ] ; do
+	if [ $_lc -gt 0 ] ; then
+	    _str="$_indent$_str"
+        fi
+	if [ ${#_str} -lt $_maxlen ] ; then
+	    _pstr="$_str"
+	    _str=''
+        else
+            _pstr="${_str:0:$_maxlen}"
+	    _strunc=${_pstr##* }
+	    _spacendx=$((${#_pstr} - ${#_strunc}))
+	    if [ $_spacendx -eq 0 ] ; then
+		_spacendx=$_maxlen
+            fi
+	    _pstr="${_str:0:$_spacendx}"
+	    _str="${_str:$_spacendx}"
+        fi
+        printf "${_prestr}| %s${_poststr}\n" "${_pstr}"
+	_lc=$((_lc + 1))
+    done
+    printf "${_prestr}+-------------------------------------------------------------------------------\n\n${_poststr}"
 }
 
 #
@@ -3173,6 +3207,7 @@ function process_create_args {
     _defs['pkgdel']='optional,multi,list'
     _defs['pkglast']='optional,multi,list'
     _defs['yum-conf']='optional,single,nolist'
+    _defs['misc-file']='optional,multi,list'
 
     # grab the command line arguments...
     process_args 'cmdline' _defs $_aStrName $@
@@ -3299,6 +3334,7 @@ function process_rpm_to_iso_args {
     _defs[pkglast]='optional,multi,list'
     _defs[yum-conf]='optional,single,nolist'
     _defs[baseurl]='optional,multi,nolist'
+    _defs[misc-file]='optional,multi,list'
 
     _help[rpm-file]='filename with rpm list from rpm -qa'
 
@@ -3424,6 +3460,7 @@ function process_test_args {
     _defs[pkglast]='optional,multi,list'
     _defs[yum-conf]='optional,single,nolist'
     _defs[baseurl]='optional,multi,nolist'
+    _defs[misc-file]='optional,multi,list'
 
     # grab the command line arguments...
     process_args 'cmdline' _defs $_aStrName $@
@@ -3806,7 +3843,7 @@ function default_mkiso_values {
    apply_arg_default _aStr rsync-opts "--exclude $ISO_PACKAGES_DIR"
 
    # save the values array string...
-   eval $_aStrName="'${_aStr}'"
+   eval $_aStrName="${_aStr}"
 
    return 0
 }
