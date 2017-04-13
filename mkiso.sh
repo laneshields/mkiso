@@ -693,7 +693,7 @@ function process_args {
     # serialize the associative array into a string...
     _astr=$(declare -p _argVals)
     _astr="${_astr#*=}"
-    eval $_aStrName="${_astr}"
+    eval $_aStrName='${_astr}'
     return 0
 }
 
@@ -1996,7 +1996,8 @@ function rpm_download {
     for _rpm in "${_arpms[@]}" ; do
         echo "checking $_rpm"
         if [ ! -f "$_rpmDloadPath/$_rpm.rpm" ] ; then
-            show_error "%s: Missing RPM file: %s\n| Consider checking yum configuration (/etc/yum.repos.d)\n" $_func "$_rpm"
+            show_error "%s: Missing RPM file: %s. Consider checking yum configuration (/etc/yum.repos.d)\n" \
+		       $_func "$_rpm"
             return 1
         fi
     done
@@ -3843,7 +3844,7 @@ function default_mkiso_values {
    apply_arg_default _aStr rsync-opts "--exclude $ISO_PACKAGES_DIR"
 
    # save the values array string...
-   eval $_aStrName="${_aStr}"
+   eval $_aStrName='${_aStr}'
 
    return 0
 }
