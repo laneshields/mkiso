@@ -156,6 +156,19 @@ aRpm2IsoHelp[17]='____________If a non-absolute path is used, the users $HOME di
 aRpm2IsoHelp[18]=''
 aRpm2IsoHelp[19]='See README.txt for more detail'
 
+declare -a aRepoHelp
+aRepoHelp[0]='mkiso.sh repo --config=<config-file>'
+aRepoHelp[2]=''
+aRepoHelp[3]='_________Create only the repository directory with packages and repodata'
+# The empty line below delimits the summary displayed when no command is specified to mkiso.sh
+aRepoHelp[4]=''
+aRepoHelp[5]='--config:___Path to configuration file. If an absolute path is not specified'
+aRepoHelp[6]='____________The directory from which mkiso.sh is started is prepended. Strictly'
+aRepoHelp[7]='____________speaking if no --config value is provided a default of `pwd`/mkiso.cfg'
+aRepoHelp[8]='____________is tried, but currently no default mkiso.cfg is provided.'
+aRepoHelp[9]=''
+aRepoHelp[10]='See README.txt for more detail'
+
 #
 # cleanup_mounts
 #
@@ -850,6 +863,7 @@ function process_command {
     _cmdDefs['test']='do_cmd_iso_test,aTestHelp'
     _cmdDefs['rpm2iso']='do_cmd_rpm_to_iso,aRpm2IsoHelp'
     _cmdDefs['show']='do_cmd_show_params,aShowHelp'
+    _cmdDefs['repo']='do_cmd_repo,aRepoHelp'
 
     if [ -z "$_cmd" ] ; then
         printf "No command provided\n"
@@ -3518,6 +3532,119 @@ function process_test_args {
 }
 
 #
+# process_repo_args:
+#
+# $1 - IN: Name of argument values ass. array.
+# $2 - IN: Name of argument definitions ass. array.
+# $3 - IN: Name of help ass. array
+#
+function process_repo_args {
+    local _func=${FUNCNAME}
+    local _aStrName=$1
+    local _aDefName=$2
+    local _aHelpName=$3
+    local _defs
+    local _help
+    local _astr
+    local _cfgpath
+    local _vstr
+
+    if [ -z "$_aStrName" ] ; then
+        printf "%s: Missing arg values array\n" $_func
+        return 1
+    fi
+    if [ -z "$_aDefName" ] ; then
+        printf "%s: Missing arg defs array\n" $_func
+        return 1
+    fi
+    if [ -z "$_aHelpName" ] ; then
+        printf "%s: Missing arg help array\n" $_func
+        return 1
+    fi
+
+    printf "%s: %s\n" $_func "$*"
+    
+    _astr=$(declare -p $_aDefName)
+    eval "declare -A _defs="${_astr#*=}
+
+    _astr=$(declare -p $_aHelpName)
+    eval "declare -A _help="${_astr#*=}
+
+    shift
+    shift
+    shift
+
+    # Mandatory => must be specified or defaulted by the time 
+    # processing starts 
+    _defs['baseurl']='optional,multi,nolist'
+    _defs['pkgdel']='optional,multi,list'
+    _defs['pkglast']='optional,multi,list'
+    _defs['yum-conf']='optional,single,nolist'
+    _defs['misc-file']='optional,multi,list'
+    _defs['iso-in']='optional,single,nolist'
+    _defs['iso-out']='optional,single,nolist'
+
+    # grab the command line arguments...
+    process_args 'cmdline' _defs $_aStrName $@
+    if [ $? -ne 0 ] ; then
+        print_help aCreateHelp _help
+        return 1
+    fi
+
+    eval "declare -A _vals="${!_aStrName}
+
+    _cfgpath="${_vals[config]}"
+    if [ -z "$_cfgpath" ] ; then
+       _cfgpath='mkiso.cfg'
+    fi
+    if [ "${_cfgpath:0:1}" != "/" ] ; then
+       tprint "$DEBUG_FLAG" "%s: _cfgpath=%s\n" $_func `pwd`'/'$_cfgpath
+       _cfgpath=`pwd`'/'$_cfgpath
+    fi 
+    if [ -d "$_cfgpath" ] ; then
+       _cfgpath=$_cfgpath'/'mkiso.cfg
+    fi
+
+    # reconcile argument values config file
+    if [ ! -z "${_cfgpath}" ] ; then
+        proc_file_args ${_cfgpath} _defs $_aStrName
+        if [ $? -ne 0 ] ; then
+            print_help aCreateHelp _help
+            return 1
+        fi
+    fi
+
+    # check the global defaults
+    default_mkiso_values $_aStrName
+    if [ $? -ne 0 ] ; then
+        print_help aCreateHelp _help
+        return 1
+    fi
+
+    eval "declare -A _vals="${!_aStrName}
+
+    cleanup_mounts _vals
+
+    # wait we aren't done yet... we need to check for mandatory args
+    check_mandatory_args _defs _vals
+    if [ $? -ne 0 ] ; then
+        print_help aCreateHelp _help
+        return 1
+    fi
+
+    # dump out the data parsed....
+    output_n_chars '=' 79
+    dump_assoc _vals
+    output_n_chars '=' 79
+
+    # lastly serialize the array and update its string
+    _astr=$(declare -p _vals)
+    eval "$_aStrName="${_astr#*=}
+
+    return 0
+}
+
+#
 # build_file:
 #
 # $1 -  I/O: Name of Arguments array as a STRING
@@ -4014,6 +4141,36 @@ function do_cmd_rpm_to_iso {
     printf "# \n"
     printf "# ISO from RPM List is located at: \n"
     printf "# %s\n" ${MKISO_VALS[iso-out]}
+    output_n_chars '#' 75
+}
+
+#
+# do_cmd_repo:
+# $@ - command line arguments
+#
+function do_cmd_repo {
+    local _func=${FUNCNAME}
+    local _mstr
+
+    printf "%s:: %s\n" $_func "$*"
+
+    aname_to_string MKISO_VALS _mstr
+    process_repo_args _mstr ARG_DEFS ARG_HELP $@
+    exit_on_fail "$_func: process_repo_args" $?
+    eval "declare -A MKISO_VALS="$_mstr
+
+    yum_download MKISO_VALS 'no-install'
+    exit_on_fail "Yum Download" $?
+
+    move_rpms_to_staging $YUM_RPM_PATH $ISO_STAGING_PATH
+    exit_on_fail "move_rpms_to_staging" $?
+
+    # SUCCESS banner... 
+    output_n_chars '#' 75
+    printf "#                    Repository Creation SUCCESS\n"
+    printf "# \n"
+    printf "# New Repo is located at: \n"
+    printf "# %s\n" ${ISO_STAGING_PATH}
     output_n_chars '#' 75
 }
 
