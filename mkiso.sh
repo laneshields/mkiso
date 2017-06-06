@@ -293,6 +293,9 @@ function show_error {
         fi
         printf "${_prestr}| %s${_poststr}\n" "${_pstr}"
 	_lc=$((_lc + 1))
+	if [ $_lc -gt 10 ] ; then
+	    break
+        fi
     done
     printf "${_prestr}+-------------------------------------------------------------------------------\n\n${_poststr}"
 }
@@ -2040,6 +2043,7 @@ function populate_kickstart {
   local _infile
   local _instList
   local _outfile
+  local _tmpfile
   local _var
   local _argVals
   local _argValsName=$1
@@ -2095,6 +2099,12 @@ function populate_kickstart {
       return 1
   fi
 
+  _tmpfile=`mktemp`
+  if [ $? -ne 0 ] ; then
+      printf "%s: create temp file failed!\n" $_func
+      return 1
+  fi
+
   for _pkg in  $_instList ; do
       if [ $_pkg == '' -o ${#_pkg} -le 2 ] ; then
           continue
@@ -2119,22 +2129,31 @@ function populate_kickstart {
   _in_section=1
   while read _line ; do
       if [[ $_line =~ "$_pkg_regex_begin" ]]  ; then
-          printf "%s\n" $_pkg_regex_begin >> $_outfile
+          printf "%s\n" $_pkg_regex_begin >> $_tmpfile
           _in_section=0
       fi
       if [ $_in_section == 0 ] && 
         [[ $_line =~ "$_pkg_regex_end" ]]  ; then
           _in_section=1
           for _pkg in $_pkgList ; do
-               printf "%s\n" $_pkg >> $_outfile
+               printf "%s\n" $_pkg >> $_tmpfile
           done
       fi
       if [ $_in_section == 1 ] ; then
-          printf "%s\n" "$_line" >> $_outfile
+          printf "%s\n" "$_line" >> $_tmpfile
       fi
   done < $_infile
 
-  return 0
+  local _status
+  populate_template_file $_tmpfile $_argValsName $_outfile 
+  _status=$?
+  if [ $_status -ne 0 ] ; then
+      printf "%s: Failed to templatize %s\n" $_func $_tmpfile
+      _status=1
+  fi
+
+  rm -f $_tpmfile
+  return $_status
 }
 
 #
@@ -2198,6 +2217,7 @@ function populate_template_file {
          _xkey=${_xkey/./_}
          _line=${_line//\{\{*([[:space:]])"$_xkey"*([[:space:]])\}\}/${_vals[$_key]}}
      done
+     printf "TMPL: %s\n" "$_line" 
      printf "%s\n" "$_line" >> $_outfile
   done < $_infile
 
@@ -2220,6 +2240,8 @@ function copy_files {
     local _dst
     local _dstpath
     local _entries
+    local _is_dir_dest=1
+    local _testpath=''
 
     local _func=${FUNCNAME}
     local _argValsName=$1
@@ -2240,16 +2262,20 @@ function copy_files {
     eval "readonly -A _argVals="${_var#*=}
     _filedata=(${_argVals[$_argType]})
 
-    printf "%s: _argVals[%s]=%s\n" $_func $_argType "${_filedata[@]}"
+    printf "%s: _argVals[%s]=%s\n" $_func $_argType "${_filedata[*]}"
     
     for _info in ${_filedata[@]} ; do
+	_is_dir_dest=1
         _entries=(${_info//,/ })
         _src=${_entries[0]}
         _dst=${_entries[1]}
+
         if [ -z "$_src" ] ; then
             printf "%s: No source file provided\n" $func
             return 1
         fi
+        printf "%s: %s %s\n" "$_func" src="$_src" dst="$_dst"
+
         # If source path is not absolute, prepend default absolute path
         _srcpath=$_src
         if [ ${_src:0:1} != '/' ] ; then
@@ -2258,37 +2284,71 @@ function copy_files {
         # Source file must exist!
         if [ ! -e $_srcpath ] ; then
             show_error "%s: source file %s does not exist\n" $_func $_srcpath
+	    printf "%s: source file %s does not exist\n" $_func $_srcpath
             return 1
         fi
         # Source file must exist!
         if [ -d $_srcpath ] ; then
             show_error "%s: source file %s is a directory!\n" $_func $_srcpath
+            printf "%s: source file %s is a directory!\n" $_func $_srcpath
             return 1
         fi
-        # Defaults the destination filename to the src filename if not provided
+        # Defaults the destination path to the src path if not provided
         if [ -z "$_dst" ] ; then
-            _dst=`basename $_src`
+            _dst=`dirname $_src`
+	    # create the destination if need be...
+	    if [ ! -z "$_dst" ] ; then
+		_is_dir_dest=0
+            fi
         fi
+        printf "_dst=%s\n" $_dst
         # if dest path not absolute, prepend default absolute path
         _dstpath=$_dst
+        printf "dst_path1=%s\n" $_dstpath
         if [ ${_dst:0:1} != '/' ] ; then
             _dstpath=$ISO_STAGING_PATH'/'$_dst
         fi
-        # If the pathname is a directory, grab the filename from the source
-        if [ -d $_dstpath ] ; then
-            _dst=`basename $_src`
-            _dstpath="$_dstpath"/"$_dst"
+        printf "dst_path2=%s\n" $_dstpath
+	if [[ ! $_dstpath =~ ^$ISO_STAGING_PATH ]] ; then
+            printf "%s: Destination directory %s must be in staging area!!!!!\n" \
+		$_func "$_dstpath"
+	    return 1
+        fi
+	# is the dest a directory?
+        printf "dst_path3=%s\n" $_dstpath
+	if [ ${_dstpath:-1} == '/' ] ; then
+	    _dstpath=${_dstpath%?}
+	    _is_dir_dest=0
         fi
         # '.' alone is not sufficient 
         _dstdir=`dirname $_dstpath`
         if [  "$_dstdir" == '.' ] ; then
-            printf "%s: Destination directory missing!\n" $func "$_dstdir"
+            printf "%s: Destination cannot be '.'\n" $_func "$_dstdir"
             return 1
         fi
-        # The dest directory path  must exist
-        if [  ! -d $_dstdir ] ; then
-            printf "%s: Destination directory %s must exist!\n" $func "$_dstdir"
-            return 1
+        printf "dst_path4=%s\n" $_dstpath
+        # The dest directory path must exist
+	_testpath=$_dstpath
+	if [ $_is_dir_dest -ne 0 ] ; then
+	    _testpath=`dirname $_dstpath`
+        fi
+        printf "dst_path5=%s\n" "$_testpath"
+        if [ ! -d "$_testpath" ] ; then
+            if [  $_is_dir_dest -eq 0 ] ; then
+		mkdir -p "$_testpath"
+		if [ $? -ne 0 ] ; then
+		    printf "%s: mkdir Destination %s FAILED\n" $_func $_testpath 
+		    return 1
+		fi
+            else
+		printf "%s: Destination directory %s Missing\n" $_func $_testpath 
+		return 1
+            fi
+        fi
+        # If the pathname is a directory, grab the filename from the source
+        if [ $_is_dir_dest -eq 0 ] ; then
+            _dst=`basename $_src`
+            _dstpath="$_dstpath"/"$_dst"
         fi
         if [ $_argType == 'template' ] ; then
              printf "%s: %s(%s %s %s)\n" $_func 'populate_template_file' \
