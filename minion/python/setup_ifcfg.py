@@ -15,8 +15,9 @@ import lshw
 gConfigPath='/etc/sysconfig/network-scripts'
 #gConfigPath='/tmp'
 gDevPrefix='ifcfg-'
-gPrivAddress='169.254.255.128'
-gPrivMask='255.255.255.254'
+# Linux does not behave consistently when using netmask=255.255.255.254 (/31)
+gPrivAddress='169.254.255.130'
+gPrivMask='255.255.255.252'
 
 def config_mgmt_intf_alias(node=None, count=0):
     mac=node.find('serial').text
