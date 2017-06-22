@@ -72,7 +72,9 @@ def run_on_sorted_intfs(sfunc, func):
             try:
                 id=node.get('handle')
                 mac=node.find('serial').text
-                sfunc(node, handles, count)
+                key=sfunc(node, count)
+                if key != '':
+                    handles.append(key)
                 count+=1
             except:
                 print "%d: Skipping %s" % (count, id)
@@ -81,6 +83,45 @@ def run_on_sorted_intfs(sfunc, func):
         print "%d: Bailing on findall" % count
         return
     count=0
+    try:
+        handles.sort()
+        for handle in handles:
+            xpathstr=".//*[@handle='" + handle + "']"  
+            try:
+                for node in lshw_root.findall(xpathstr):
+                    id=node.get('handle')
+                    type=node.get('class')
+                    if (type != 'network'):
+                        print "%d: skipping class=%s for %s" % (count, type, id)
+                        continue
+                    print "%d: Process %s %s" % (count, node.get('class'), id)
+                    func(node, count)
+                    count+=1
+            except:
+                print "%d: Skipping-2 %s" % (count, id)
+    except:
+        print "%d: Bailing on %s" % (count, handle)
+
+###############################################################################
+# run_on_sorted_intfs:
+#
+# The caller passes two functions:
+# sfunc1 = network node key to add to sort list
+# func1  = function to execute over nodes from sorted list
+#
+###############################################################################
+def run_on_sorted_intfs_2(sfunc, func):
+    count=0
+    handles=[]
+    handle=''
+    for node in lshw_root.findall(".//*[@class='network']"):
+        id=node.get('handle')
+        mac=node.find('serial').text
+        key=sfunc(node, count)
+        if key != '':
+            handles.append(key)
+            count+=1
+
     try:
         handles.sort()
         for handle in handles:
