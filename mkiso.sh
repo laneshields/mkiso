@@ -63,6 +63,7 @@ REQUIRED_RPMS="
   hfsplus-tools \
   kmod-hfsplus \
   cifs-utils \
+  isomd5sum \
 "
 
 # terminal color/style control characters
