@@ -1782,11 +1782,12 @@ function yum_download {
       elif [ "${_file:0:2}" == "\'@" ] ; then
           add_to_list _grpList ${_file:1}
       elif [ "${_file:0:1}" == "~" ] ; then
-          _filestr=`ls -1t $_file*.rpm`
-          if [  $? -ne 0 -a ! -z $_filestr ] ; then
+          _filestr=`ls -1t ${_file:1}*.rpm`
+          if [  $? -eq 0 -a ! -z "$_filestr" ] ; then
               _files=($_filestr)
               if [ ${#_files[@]} -gt 0 ] ; then
                  add_to_list _rpmList ${_files[0]}
+		 add_to_list _copyList ${_files[0]}
               else
                   printf "%s: ERROR No rpm match-2 for: $_file\n" $_func
                   return 1
@@ -2344,7 +2345,19 @@ function populate_template_file {
      printf "%s\n" "$_line" >> $_outfile
   done < $_infile
 
-  return 0
+  # Check to see if anything is left that looks like a unpopulated
+  # template variable, and fail if found...
+  local _return_code=$STATUS_OK
+  local _line_count=1
+  while read _line ; do
+      if [[ $_line =~ {{[[:space:]]*[^[[:space:]]]+[[:space:]]*}} ]] ; then
+	   printf "${TERMINAL_COLOR_RED}%s${TERMINAL_STYLE_NORMAL}\n" "TMPL WARN\[$_line_count\]: $_line"
+	   _return_code=$STATUS_FAIL
+      fi
+      _line_count=$((_line_count+1))
+  done < $_infile
+
+  return $_return_code
 }
 
 #
@@ -4191,7 +4204,7 @@ function default_mkiso_values {
    apply_arg_default _aStr iso.boot_timeout 30
    apply_arg_default _aStr iso.linux_timeout 300
    apply_arg_default _aStr iso.linux_title "128T Router Install"
-   apply_arg_default _aStr iso.background splash.png
+   apply_arg_default _aStr iso.linux_background splash.png
    apply_arg_default _aStr iso.linux_display boot.msg
 
    # regenerate the array from the string...
