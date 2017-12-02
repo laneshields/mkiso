@@ -38,7 +38,7 @@ fi
 clear
 
 # restore original tty/console behavior
-mv -f $OVERRIDE_SOURCE_DIR/override.conf /tmp/override.conf
+rm -f $OVERRIDE_SOURCE_DIR/override.conf
 systemctl daemon-reload
 # systemctl stop followed by start[serial-]getty@tty$OVERRIDE_TTY.service
 # does not work, systemctl restart [serial-]getty@tty$OVERRIDE_TTY.service
