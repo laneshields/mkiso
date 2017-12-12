@@ -13,18 +13,19 @@
 #############################################################################
 
 # 3.1.6: This is a temporary workaround...
-# setup the python environment...
-init_status="FAILED"
-PYTHON_ENV_INIT_CMD="128T_python_environment_init"
-
-echo "Starting $PYTHON_ENV_INIT_CMD"
-
-chroot $INSTALLED_ROOT bash -c "$PYTHON_ENV_INIT_CMD"
-if [ $? -eq 0 ] ; then
-    init_status="SUCCEEDED"
-fi
-
-echo "$PYTHON_ENV_INIT_CMD: $init_status"
+# setup the python environments...
+# WARNING IFS=$'\n' messes with kickstart...
+PYTHON_INIT_CMDS=("128T_python_environment_init" \
+                  "128T_salt_environment_init")
+for cmd in ${PYTHON_INIT_CMDS[@]} ; do
+    init_status="FAILED"
+    echo "Starting $cmd..."
+    chroot $INSTALLED_ROOT bash -c "$cmd &> /root/$cmd.log" 
+    if [ $? -eq 0 ] ; then
+        init_status="SUCCEEDED"
+    fi
+    echo "$cmd: $init_status"
+done
 
 # An assumption is made that the console device is always
 # of the form 'ttyXXXX' where XXXX can change
