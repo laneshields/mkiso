@@ -23,6 +23,7 @@ echo "Configuring firewalld..."
 
 cp -f $INSTALLER_FILES/zookeeper.xml $FIREWALLD_SERVICE_PATH
 cp -f $INSTALLER_FILES/salt-master.xml $FIREWALLD_SERVICE_PATH
+cp -f $INSTALLER_FILES/netconf.xml $FIREWALLD_SERVICE_PATH
 
 # enable firewalld service (no need to start; will happen on reboot)
 chroot $INSTALLED_ROOT bash -c "systemctl enable firewalld"
@@ -36,11 +37,14 @@ chroot $INSTALLED_ROOT bash -c "$FWCMD --zone=t128 --add-service=https"
 #allow ssh connectivity for zone t128
 chroot $INSTALLED_ROOT bash -c "$FWCMD --zone=t128 --add-service=ssh"
 
-#allow ssh connectivity for zone t128
+#allow zookeeper connectivity for zone t128
 chroot $INSTALLED_ROOT bash -c "$FWCMD --zone=t128 --add-service=zookeeper"
 
-#allow ssh connectivity for zone t128
+#allow salt-master connectivity for zone t128
 chroot $INSTALLED_ROOT bash -c "$FWCMD --zone=t128 --add-service=salt-master"
+
+#allow netconf connectivity for zone t128
+chroot $INSTALLED_ROOT bash -c "$FWCMD --zone=t128 --add-service=netconf"
 
 #Drop any traffic that doesn't match expected sources / services
 chroot $INSTALLED_ROOT bash -c "$FWCMD --zone=t128 --set-target=DROP"

@@ -1,0 +1,11 @@
+
+# Eliminate the need for -s /bin/bash
+# For saftety, 'sudo su' becomes 'sudo su -'
+function sudo() {
+    if [[ "$@" == "su -" ]] || \
+       [[ "$@" == "su" ]] ; then
+        /bin/sudo su - -s /bin/bash
+    else
+        /bin/sudo $@
+    fi
+}

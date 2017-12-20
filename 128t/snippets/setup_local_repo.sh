@@ -13,7 +13,6 @@
 #
 #########################################################################
 
-YUM_CERT_DIR=$INSTALLED_ROOT/etc/pki/128technology
 PACKAGE_DIR=$INSTALLED_ROOT/etc/128technology
 CHROOT_REPO_DIR=/etc/128technology/Packages
 REPO_FILE=$INSTALLED_ROOT/etc/yum.repos.d/install128t.repo
@@ -25,15 +24,15 @@ mkdir -p $RPM_KEY_DIR
 cp -f $INSTALLER_FILES/downloads/SALTSTACK-GPG-KEY.pub $RPM_KEY_DIR/SALTSTACK-GPG-KEY.pub
 chroot $INSTALLED_ROOT bash -c "rpm --import $CHROOT_RPM_KEY_DIR/SALTSTACK-GPG-KEY.pub"
 
-# Fool the installer into thinking it has a yum certificate
-mkdir -p $YUM_CERT_DIR
-touch $YUM_CERT_DIR/release.pem
-
 # Copy ISO packages to local yum repo directory
 mkdir -p $PACKAGE_DIR
 echo "Start Copying Package Files..."
 echo "$INSTALLER_FILES/Packages -> $PACKAGE_DIR"
 rsync -avzh --progress $INSTALLER_FILES/Packages $PACKAGE_DIR
+if [ $? -ne 0 ] ; then
+    printf "Failed to rsync iso repository to target disk!"
+    exit 1
+fi
 echo "Finished Copying Package Files..."
 
 #create a local repo .repo config file
@@ -50,3 +49,7 @@ echo "skip_if_unavailable=False" >> $REPO_FILE
 
 echo "Create Local YUM Repository"
 chroot $INSTALLED_ROOT bash -c "/usr/bin/createrepo $CHROOT_REPO_DIR"
+if [ $? -ne 0 ] ; then
+    printf "Failed to create repo on target disk!"
+    exit 1
+fi
