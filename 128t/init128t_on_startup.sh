@@ -45,10 +45,12 @@ if [ ! -d ${LOCAL_REPO_DIR} -a $status -eq 0 ] ; then
     status=$?
 fi
 
+start_sw=1
 if [ $status -eq 0 ] ; then
-    dialog --cr-wrap --no-collapse --colors --title "128T Installer Status" \\
-           --msgbox "\\n    Install SUCCEEDED \\n\\n Enter OK for Login Prompt" \\
-           8 32
+    dialog --no-collapse --cr-wrap --colors --title "128T Installer Status" --yesno \\
+           "\\n      \\Zb\\Z2Install SUCCESS\\Z0\\ZB\\n\\n    Start 128T Router\\n    before proceeding to\\n    login prompt?" \\
+           10 32
+    start_sw=$?
 else
     dialog --cr-wrap --no-collapse --colors --title "\\Z1 128T Installer Status" \\
            --msgbox "\\n\\n\\Z1  \\Zb\\Zr Install Failure Code=$status \\ZR\\ZB\\n\\n Enter OK for Login Prompt" \\
@@ -63,6 +65,12 @@ fi
 
 # clear any leftover kruft from dialog
 clear
+
+# start 128T if so desired...
+if [ $start_sw -eq 0 ] ; then
+    systemctl enable 128T &> /dev/null
+    systemctl start 128T &> /dev/null
+fi
 
 # restore original tty/console behavior
 rm -f ${OVERRIDE_SOURCE_DIR}/override.conf
