@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+ <service>
+   <short>zookeeper</short>
+   <description>128 Technology Zookeeper Server</description>
+   <port protocol="tcp" port="930"/>
+ </service>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+ <service>
+   <short>netconf</short>
+   <description>128 Technology NetConf Server</description>
+   <port protocol="tcp" port="830"/>
+ </service>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+ <service>
+   <short>salt-master</short>
+   <description>Default salt-master tcp ports.</description>
+   <port protocol="tcp" port="4505"/>
+   <port protocol="tcp" port="4506"/>
+ </service>
