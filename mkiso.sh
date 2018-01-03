@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 ############################################################################
 #
 #              _    _                _
@@ -362,26 +362,26 @@ function show_error {
     printf "\n"
     printf "${_prestr}+-------------------------------------------------------------------------------\n${_poststr}"
     while [ "$_str" != '' ] ; do
-	if [ $_lc -gt 0 ] ; then
-	    _str="$_indent$_str"
+        if [ $_lc -gt 0 ] ; then
+            _str="$_indent$_str"
         fi
-	if [ ${#_str} -lt $_maxlen ] ; then
-	    _pstr="$_str"
-	    _str=''
+        if [ ${#_str} -lt $_maxlen ] ; then
+            _pstr="$_str"
+            _str=''
         else
             _pstr="${_str:0:$_maxlen}"
-	    _strunc=${_pstr##* }
-	    _spacendx=$((${#_pstr} - ${#_strunc}))
-	    if [ $_spacendx -eq 0 ] ; then
-		_spacendx=$_maxlen
+            _strunc=${_pstr##* }
+            _spacendx=$((${#_pstr} - ${#_strunc}))
+            if [ $_spacendx -eq 0 ] ; then
+                _spacendx=$_maxlen
             fi
-	    _pstr="${_str:0:$_spacendx}"
-	    _str="${_str:$_spacendx}"
+            _pstr="${_str:0:$_spacendx}"
+            _str="${_str:$_spacendx}"
         fi
         printf "${_prestr}| %s${_poststr}\n" "${_pstr}"
-	_lc=$((_lc + 1))
-	if [ $_lc -gt 10 ] ; then
-	    break
+        _lc=$((_lc + 1))
+        if [ $_lc -gt 10 ] ; then
+            break
         fi
     done
     printf "${_prestr}+-------------------------------------------------------------------------------\n\n${_poststr}"
@@ -461,24 +461,24 @@ function check_installed_rpms {
     yum repolist | grep elrepo &> /dev/null
     if [ $? -ne 0 -a ! -f $YUM_ELREPO_CONFIG_FILE ] ; then
         if [ -z "$1" -o ${1^^} == "ON" ] ; then
-	    echo "-----------------------------------------------"
+            echo "-----------------------------------------------"
             echo -n "Install Yum ELREPO Configuration [n/y]: "
             read _doit
         else
-	    _doit="y"
+            _doit="y"
         fi
         if [ ! -z "$_doit" -a "$_doit"=="y" ] ; then
-	     create_elrepo
-	     if [ $? -ne 0 ] ; then
+             create_elrepo
+             if [ $? -ne 0 ] ; then
                   printf "%s:Install $YUM_ELREPO_CONFIG_FILE FAILED\n" $_func
-		  return 1
+                  return 1
              fi
-	     sudo rpm --import $YUM_ELREPO_GPG_KEY
-	     if [ $? -ne 0 ] ; then
+             sudo rpm --import $YUM_ELREPO_GPG_KEY
+             if [ $? -ne 0 ] ; then
                   printf "%s: Install $YUM_ELREPO_GPG_KEY FAILED\n" $_func
-		  return 1
+                  return 1
              fi
-	fi
+        fi
     fi
 
     # Check for the elrepo repository...
@@ -486,37 +486,37 @@ function check_installed_rpms {
     yum repolist | grep epel &> /dev/null
     if [ $? -ne 0 ] ; then
         if [ -z "$1" -o ${1^^} == "ON" ] ; then
-	    echo "-----------------------------------------------"
+            echo "-----------------------------------------------"
             echo -n "Install Yum EPEL Configuration [n/y]: "
             read _doit
         else
-	    _doit="y"
+            _doit="y"
         fi
         if [ ! -z "$_doit" -a "$_doit"=="y" ] ; then
-	     sudo yum -y install epel-release
-	     if [ $? -ne 0 ] ; then
+             sudo yum -y install epel-release
+             if [ $? -ne 0 ] ; then
                   printf "%s: Install EPEL Repository FAILED\n" $_func
-		  return 1
+                  return 1
              fi
-	fi
+        fi
     fi
 
     for _rpmEntry in $REQUIRED_RPMS; do
-	_rpmData=(${_rpmEntry//,/ })
-	_rpm=${_rpmData[0]}
-	if [ -z "${_rpmData[1]}" ] ; then
-	    _getrpm=$_rpm
+        _rpmData=(${_rpmEntry//,/ })
+        _rpm=${_rpmData[0]}
+        if [ -z "${_rpmData[1]}" ] ; then
+            _getrpm=$_rpm
         fi
         printf "%s: Check RPM %s...\n" $_func $_rpm
         _val=`rpm -qa "$_rpm*"`
         if [ -z "$_val" ] ; then
             if [ -z "$1" -o ${1^^} == "ON" ] ; then
-		echo "-----------------------------------------------"
-		echo -n "Install $_rpm [n/y]: "
-		read _doit
+                echo "-----------------------------------------------"
+                echo -n "Install $_rpm [n/y]: "
+                read _doit
             else
-		_doit="y"
-	    fi
+                _doit="y"
+            fi
             if [ ! -z "$_doit" -a "$_doit"=="y" ] ; then
                 sudo yum -y install $_rpm
                 if [ $? -ne 0 ] ; then
@@ -604,7 +604,7 @@ function mount_samba_fs {
     fi
 
     printf "%s: sudo mount -r -t cifs %s %s -o username=%s\n" \
-	${FUNCNAME[0]} $_resource $_mount_path $_user
+        ${FUNCNAME[0]} $_resource $_mount_path $_user
     sudo mount -r -t cifs $_resource $_mount_path -o username=$_user
     if [ $? -ne 0 ] ; then
         printf "%s: Failed to mount Samba //%s/%s\n" $_func $_host $_resource
@@ -680,13 +680,13 @@ function get_http_iso() {
     
     _isofn=`basename ${_args[iso-in]}`
     if [ -z "${_isofn}" ] ; then
-	 print_error "$_func: iso filename not provided!"
-	 return $STATUS_FAIL
+         print_error "$_func: iso filename not provided!"
+         return $STATUS_FAIL
     fi
 
     if [ "${_isofn: -4}" != ".iso" ] ; then
-	 print_error "$_func: $_isofn missing .iso extension"
-	 return $STATUS_FAIL
+         print_error "$_func: $_isofn missing .iso extension"
+         return $STATUS_FAIL
     fi
 
     _wget_path=${_args[workspace]}/${_wget_dir}
@@ -699,8 +699,8 @@ function get_http_iso() {
     cd $_origdir
 
     if [ $_status -ne 0 ] ; then
-	printf "$_func: wget -N ${args[iso-in]} FAILED($_status)\n"
-	return $_status
+        printf "$_func: wget -N ${args[iso-in]} FAILED($_status)\n"
+        return $_status
     fi
 
     # Overwrite the iso-in path...
@@ -723,11 +723,11 @@ function process_iso_url {
     local _func=${FUNCNAME[0]}
 
     if [ -z "$_pname" ] ; then
-	print_error "$_func: No parameter array passed!"
+        print_error "$_func: No parameter array passed!"
         return $STATUS_FAIL
     fi
     if [ -z "$_pstrout" ] ; then
-	print_error "$_func: No output string passed!"
+        print_error "$_func: No output string passed!"
         return $STATUS_FAIL
     fi
  
@@ -751,7 +751,7 @@ function process_iso_url {
         if [ ! -z ${URL_HELPER_FUNCS[$_proto]} ] ; then
             printf "%s: eval %s _params _pstr\n" $_func ${URL_HELPER_FUNCS[$_proto]} 
             eval "${URL_HELPER_FUNCS[$_proto]} _params _pstr"
-	    _status=$?
+            _status=$?
             if [ $_status -ne 0 ] ; then
                 print_error "$_func: Error $_status executing ${URL_HELPER_FUNCS[$_proto]}"
                 return $STATUS_FAIL
@@ -912,9 +912,9 @@ function process_args {
             fi
 
             pname=${pcomps[0]}
-	    pval=${pcomps[1]}
-	    if [ ! -z "${controls[2]}" -a  "${controls[2]}" == "novalue" ] ; then
-		pval="PRESENT"
+            pval=${pcomps[1]}
+            if [ ! -z "${controls[2]}" -a  "${controls[2]}" == "novalue" ] ; then
+                pval="PRESENT"
             fi
 
             printf "%s: pname='%s' delim=%s pval=%s\n" $_func $pname ${pval:0:1} $pval
@@ -940,8 +940,8 @@ function process_args {
             fi
         else
             pval=$param
-	    if [ ! -z "${controls[2]}" -a  "${controls[2]}" == "novalue" ] ; then
-		pval="PRESENT"
+            if [ ! -z "${controls[2]}" -a  "${controls[2]}" == "novalue" ] ; then
+                pval="PRESENT"
             fi
         fi
          printf "%s: *** param=%s pname=%s pval=%s inList=(%s)\n" $_func "$param" "$pname" "$pval" $inList
@@ -1924,7 +1924,7 @@ function yum_download {
               _files=($_filestr)
               if [ ${#_files[@]} -gt 0 ] ; then
                  add_to_list _rpmList ${_files[0]}
-		 add_to_list _copyList ${_files[0]}
+                 add_to_list _copyList ${_files[0]}
               else
                   printf "%s: ERROR No rpm match-2 for: $_file\n" $_func
                   return 1
@@ -2275,7 +2275,7 @@ function rpm_download {
         echo "checking $_rpm"
         if [ ! -f "$_rpmDloadPath/$_rpm.rpm" ] ; then
             show_error "%s: Missing RPM file: %s. Consider checking yum configuration (/etc/yum.repos.d)\n" \
-		       $_func "$_rpm"
+                       $_func "$_rpm"
             return 1
         fi
     done
@@ -2488,8 +2488,8 @@ function populate_template_file {
   local _line_count=1
   while read _line ; do
       if [[ $_line =~ {{[[:space:]]*[^[[:space:]]]+[[:space:]]*}} ]] ; then
-	   printf "${TERMINAL_COLOR_RED}%s${TERMINAL_STYLE_NORMAL}\n" "TMPL WARN\[$_line_count\]: $_line"
-	   _return_code=$STATUS_FAIL
+           printf "${TERMINAL_COLOR_RED}%s${TERMINAL_STYLE_NORMAL}\n" "TMPL WARN\[$_line_count\]: $_line"
+           _return_code=$STATUS_FAIL
       fi
       _line_count=$((_line_count+1))
   done < $_infile
@@ -2538,7 +2538,7 @@ function copy_files {
     printf "%s: _argVals[%s]=%s\n" $_func $_argType "${_filedata[*]}"
 
     for _info in ${_filedata[@]} ; do
-	_is_dir_dest=1
+        _is_dir_dest=1
         _entries=(${_info//,/ })
         _src=${_entries[0]}
         _dst=${_entries[1]}
@@ -2557,7 +2557,7 @@ function copy_files {
         # Source file must exist!
         if [ ! -e $_srcpath ] ; then
             show_error "%s: source file %s does not exist\n" $_func $_srcpath
-	    printf "%s: source file %s does not exist\n" $_func $_srcpath
+            printf "%s: source file %s does not exist\n" $_func $_srcpath
             return 1
         fi
         # Source file must exist!
@@ -2569,9 +2569,9 @@ function copy_files {
         # Defaults the destination path to the src path if not provided
         if [ -z "$_dst" ] ; then
             _dst=`dirname $_src`
-	    # create the destination if need be...
-	    if [ ! -z "$_dst" ] ; then
-		_is_dir_dest=0
+            # create the destination if need be...
+            if [ ! -z "$_dst" ] ; then
+                _is_dir_dest=0
             fi
         fi
         printf "_dst=%s\n" $_dst
@@ -2582,16 +2582,16 @@ function copy_files {
             _dstpath=$ISO_STAGING_PATH'/'$_dst
         fi
         printf "dst_path2=%s\n" $_dstpath
-	if [[ ! $_dstpath =~ ^$ISO_STAGING_PATH ]] ; then
+        if [[ ! $_dstpath =~ ^$ISO_STAGING_PATH ]] ; then
             printf "%s: Destination directory %s must be in staging area!!!!!\n" \
-		$_func "$_dstpath"
-	    return 1
+                $_func "$_dstpath"
+            return 1
         fi
-	# is the dest a directory?
+        # is the dest a directory?
         printf "dst_path3=%s\n" $_dstpath
-	if [ ${_dstpath:-1} == '/' ] ; then
-	    _dstpath=${_dstpath%?}
-	    _is_dir_dest=0
+        if [ ${_dstpath:-1} == '/' ] ; then
+            _dstpath=${_dstpath%?}
+            _is_dir_dest=0
         fi
         # '.' alone is not sufficient
         _dstdir=`dirname $_dstpath`
@@ -2601,21 +2601,21 @@ function copy_files {
         fi
         printf "dst_path4=%s\n" $_dstpath
         # The dest directory path must exist
-	_testpath=$_dstpath
-	if [ $_is_dir_dest -ne 0 ] ; then
-	    _testpath=`dirname $_dstpath`
+        _testpath=$_dstpath
+        if [ $_is_dir_dest -ne 0 ] ; then
+            _testpath=`dirname $_dstpath`
         fi
         printf "dst_path5=%s\n" "$_testpath"
         if [ ! -d "$_testpath" ] ; then
             if [  $_is_dir_dest -eq 0 ] ; then
-		mkdir -p "$_testpath"
-		if [ $? -ne 0 ] ; then
-		    printf "%s: mkdir Destination %s FAILED\n" $_func $_testpath
-		    return 1
-		fi
+                mkdir -p "$_testpath"
+                if [ $? -ne 0 ] ; then
+                    printf "%s: mkdir Destination %s FAILED\n" $_func $_testpath
+                    return 1
+                fi
             else
-		printf "%s: Destination directory %s Missing\n" $_func $_testpath
-		return 1
+                printf "%s: Destination directory %s Missing\n" $_func $_testpath
+                return 1
             fi
         fi
         # If the pathname is a directory, grab the filename from the source
@@ -2678,23 +2678,23 @@ function copy_urls {
     local _status=0
 
     for _src in ${_filedata[@]} ; do
-	if [ ! -d "$_dloadpath" ] ; then
-	    mkdir -p "$_dloadpath"
-	    if [ $? -ne 0 ] ; then
-		printf "%s: Unable to create staging area path -- $_dloadpath"
-		return 1
-	    fi
-	fi
-	_curdir=`pwd`
-	cd $_dloadpath
-	curl --remote-name $_src
-	_status=$?
-	cd $_curdir
-	if [ $_status -ne 0 ] ; then
-	     printf "%s: Failed to acquire -- %s\n" $_func $_src
-	     return 1
+        if [ ! -d "$_dloadpath" ] ; then
+            mkdir -p "$_dloadpath"
+            if [ $? -ne 0 ] ; then
+                printf "%s: Unable to create staging area path -- $_dloadpath"
+                return 1
+            fi
         fi
-	printf "%s: %s -> %s\n" $_func $_src $_dloadpath
+        _curdir=`pwd`
+        cd $_dloadpath
+        curl --remote-name $_src
+        _status=$?
+        cd $_curdir
+        if [ $_status -ne 0 ] ; then
+             printf "%s: Failed to acquire -- %s\n" $_func $_src
+             return 1
+        fi
+        printf "%s: %s -> %s\n" $_func $_src $_dloadpath
     done
     
     return 0
@@ -3472,8 +3472,8 @@ function print_cmd_help {
             printf "%s\n" "$_line"
             if [ "$_line" == '' ] ; then
                 _crlfcnt=$((_crlfcnt+1))
-		# The second empty line in the command help arrays delimits
-		# summary text from the full help text.
+                # The second empty line in the command help arrays delimits
+                # summary text from the full help text.
                 if [ $_crlfcnt -eq ${MKISO_HELP_EMPTY_LINE_COUNT} ] ; then
                      break
                 fi
@@ -4092,7 +4092,7 @@ function build_file {
     fi
     # leave anything that looks like a URL alone...
     if [[ $_fpath =~ ^([A-Za-z]+): ]] ; then
-	return $STATUS_OK
+        return $STATUS_OK
     fi
     _pos=1
     if [ "${_fpath:0:1}" == "~" ] ; then
