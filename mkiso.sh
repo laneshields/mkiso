@@ -1,4 +1,4 @@
-#!/bin/bash
+!/bin/bash
 ############################################################################
 #
 #              _    _                _
@@ -32,6 +32,10 @@ shopt -s extglob
 # Turns on additional output, useful for debugging
 # 0=on, 1=off (typical bash)
 DEBUG_FLAG=1
+
+# Global status values
+STATUS_OK=0
+STATUS_FAIL=1
 
 #
 # Prefix to yum repository entries in a generated
@@ -179,6 +183,12 @@ aRepoHelp[8]='____________is tried, but currently no default mkiso.cfg is provid
 aRepoHelp[9]=''
 aRepoHelp[10]='See README.txt for more detail'
 
+#
+# Ass. Array of functions basen on URL protocol
+#
+declare -A URL_HELPER_FUNCS
+URL_HELPER_FUNCS['http']=get_http_iso
+URL_HELPER_FUNCS['smb']=query_samba_iso
 
 #
 # create_elrepo:
@@ -434,6 +444,8 @@ function check_bash_version {
 #
 # check installed rpms to see if required tools are installed...
 #
+# $1 - "on" (or not provided) to prompt before each install, otherwise off
+#
 function check_installed_rpms {
     local _func=${FUNCNAME}
     local _rpm
@@ -442,14 +454,19 @@ function check_installed_rpms {
     local _getrpm
     local _val
     local _status
+    local _doit
 
     # Check for the elrepo repository...
     printf "%s: Check REPO EL...\n" $_func
     yum repolist | grep elrepo &> /dev/null
     if [ $? -ne 0 -a ! -f $YUM_ELREPO_CONFIG_FILE ] ; then
-	echo "-----------------------------------------------"
-        echo -n "Install Yum ELREPO Configuration [n/y]: "
-        read _doit
+        if [ -z "$1" -o ${1^^} == "ON" ] ; then
+	    echo "-----------------------------------------------"
+            echo -n "Install Yum ELREPO Configuration [n/y]: "
+            read _doit
+        else
+	    _doit="y"
+        fi
         if [ ! -z "$_doit" -a "$_doit"=="y" ] ; then
 	     create_elrepo
 	     if [ $? -ne 0 ] ; then
@@ -468,9 +485,13 @@ function check_installed_rpms {
     printf "%s: Check REPO EPEL...\n" $_func
     yum repolist | grep epel &> /dev/null
     if [ $? -ne 0 ] ; then
-	echo "-----------------------------------------------"
-        echo -n "Install Yum EPEL Configuration [n/y]: "
-        read _doit
+        if [ -z "$1" -o ${1^^} == "ON" ] ; then
+	    echo "-----------------------------------------------"
+            echo -n "Install Yum EPEL Configuration [n/y]: "
+            read _doit
+        else
+	    _doit="y"
+        fi
         if [ ! -z "$_doit" -a "$_doit"=="y" ] ; then
 	     sudo yum -y install epel-release
 	     if [ $? -ne 0 ] ; then
@@ -489,9 +510,13 @@ function check_installed_rpms {
         printf "%s: Check RPM %s...\n" $_func $_rpm
         _val=`rpm -qa "$_rpm*"`
         if [ -z "$_val" ] ; then
-            echo "-----------------------------------------------"
-            echo -n "Install $_rpm [n/y]: "
-            read _doit
+            if [ -z "$1" -o ${1^^} == "ON" ] ; then
+		echo "-----------------------------------------------"
+		echo -n "Install $_rpm [n/y]: "
+		read _doit
+            else
+		_doit="y"
+	    fi
             if [ ! -z "$_doit" -a "$_doit"=="y" ] ; then
                 sudo yum -y install $_rpm
                 if [ $? -ne 0 ] ; then
@@ -578,6 +603,8 @@ function mount_samba_fs {
         return 1
     fi
 
+    printf "%s: sudo mount -r -t cifs %s %s -o username=%s\n" \
+	${FUNCNAME[0]} $_resource $_mount_path $_user
     sudo mount -r -t cifs $_resource $_mount_path -o username=$_user
     if [ $? -ne 0 ] ; then
         printf "%s: Failed to mount Samba //%s/%s\n" $_func $_host $_resource
@@ -629,6 +656,119 @@ function query_samba_iso {
     eval "$_sout="${_astr#*=}
 
     return 0
+}
+
+#
+# get_http_iso:
+#
+# $1 - IN:  input argument array
+# $2 - OUT: updated array string
+#
+function get_http_iso() {
+    local _aname=$1
+    local _sout=$2
+    local _origdir=`pwd`
+    local _astr
+    local _args
+    local _isofn
+    local _wget_path
+    local _wget_dir='wget-iso'
+    local _func=${FUNCNAME[0]}
+
+    _astr=$(declare -p $_aname)
+    eval "declare -A _args="${_astr#*=}
+    
+    _isofn=`basename ${_args[iso-in]}`
+    if [ -z "${_isofn}" ] ; then
+	 print_error "$_func: iso filename not provided!"
+	 return $STATUS_FAIL
+    fi
+
+    if [ "${_isofn: -4}" != ".iso" ] ; then
+	 print_error "$_func: $_isofn missing .iso extension"
+	 return $STATUS_FAIL
+    fi
+
+    _wget_path=${_args[workspace]}/${_wget_dir}
+    mkdir -p ${_wget_path}
+
+    cd ${_wget_path}
+    printf "$_func: wget -N ${args[iso-in]} -> ${_wget_path}\n"
+    wget -N ${_args[iso-in]} 
+    _status=$?
+    cd $_origdir
+
+    if [ $_status -ne 0 ] ; then
+	printf "$_func: wget -N ${args[iso-in]} FAILED($_status)\n"
+	return $_status
+    fi
+
+    # Overwrite the iso-in path...
+    _args[iso-in]="${_wget_path}/${_isofn}"
+
+    _astr=$(declare -p _args)
+    eval "$_sout="${_astr#*=}
+    
+    return $STATUS_SUCESS
+}
+
+#
+# process_iso_url:
+#
+function process_iso_url {
+    local _pname=$1
+    local _pstrout=$2
+    local _proto=''
+    local _status=''
+    local _func=${FUNCNAME[0]}
+
+    if [ -z "$_pname" ] ; then
+	print_error "$_func: No parameter array passed!"
+        return $STATUS_FAIL
+    fi
+    if [ -z "$_pstrout" ] ; then
+	print_error "$_func: No output string passed!"
+        return $STATUS_FAIL
+    fi
+ 
+    _pstr=$(declare -p $_pname)
+    eval "declare -A _params="${_pstr#*=}
+    _proto=''
+
+    printf "%s: Process URL=%s\n" $_func ${_params[iso-in]}
+
+    # Use smb: by default...
+    if [ -z "${_params[iso-in]}" ] ; then
+        _params[iso-in]="smb:${params[samba_resource]}"
+    fi
+
+    if [[ ${_params[iso-in]}  =~ ^([A-Za-z]+): ]] ; then
+        _proto=${BASH_REMATCH[1]}
+    fi
+
+    # Do something only if a protocol is extracted
+    if [ "$_proto" != "" ]  ; then
+        if [ ! -z ${URL_HELPER_FUNCS[$_proto]} ] ; then
+            printf "%s: eval %s _params _pstr\n" $_func ${URL_HELPER_FUNCS[$_proto]} 
+            eval "${URL_HELPER_FUNCS[$_proto]} _params _pstr"
+	    _status=$?
+            if [ $_status -ne 0 ] ; then
+                print_error "$_func: Error $_status executing ${URL_HELPER_FUNCS[$_proto]}"
+                return $STATUS_FAIL
+            fi
+            # put the array back together...
+            eval "declare -A _params="$_pstr
+        else 
+            print_error "$_func: Unsupported URL proto $_proto"
+        fi
+    else
+        printf "$_func: No protocol to apply\n"
+    fi
+
+    _pstr=$(declare -p _params)
+    eval "$_pstrout="${_pstr#*=}
+
+    return $STATUS_OK
 }
 
 #
@@ -762,20 +902,22 @@ function process_args {
             slist=${ctl_list:0:1}
 
             if [ ${#pcomps[@]} -eq 1 ] ; then
-                if [ ! -z "${controls[1]}" -a "${controls[1]}" != "novalue" ] ; then
-                    show_error "%s: ERROR Missing value for parameter: %s\n" $_func ${pcomps[0]}
+                if [ ! -z "${controls[2]}" -a "${controls[2]}" != "novalue" ] ; then
+                    show_error "%s: ERROR Missing value for parameter: %s (%s)\n" $_func ${pcomps[0]} ${controls[2]}
                     return 1
                 fi
-            fi
-
-            if [ ${#pcomps[@]} -ne 2 ] ; then
+            elif [ ${#pcomps[@]} -ne 2 ] ; then
                 printf "%s: bad format '%s' only %d parts\n" $_func $param ${#pcomps[@]}
                 return 1
             fi
 
             pname=${pcomps[0]}
-            pval=${pcomps[1]}
-            # printf "%s: pname='%s' delim=%s\n" $_func $pname ${pval:0:1}
+	    pval=${pcomps[1]}
+	    if [ ! -z "${controls[2]}" -a  "${controls[2]}" == "novalue" ] ; then
+		pval="PRESENT"
+            fi
+
+            printf "%s: pname='%s' delim=%s pval=%s\n" $_func $pname ${pval:0:1} $pval
             if [ "${pval:0:1}" == "}" ] ; then
                 show_error "%s: ERROR %s... leading '}' outside list\n" $_func $pname
                 return 1
@@ -798,8 +940,11 @@ function process_args {
             fi
         else
             pval=$param
+	    if [ ! -z "${controls[2]}" -a  "${controls[2]}" == "novalue" ] ; then
+		pval="PRESENT"
+            fi
         fi
-        # printf "%s: *** param=%s pname=%s pval=%s inList=(%s)\n" $_func "$param" "$pname" "$pval" $inList
+         printf "%s: *** param=%s pname=%s pval=%s inList=(%s)\n" $_func "$param" "$pname" "$pval" $inList
         if [ $ctl_multi == "single" ] ; then
             if [ "$inList" == '' -a ! -z "${_argVals[${pname}]}" ] ; then
                 show_error "%s: Parameter %s present more than once\n" $_func $pname
@@ -1437,8 +1582,8 @@ function copy_repo_config {
     local _yum_repo_dest_path="${_repodata[yum_repo_dest_path]}"
     local _yum_repo_src_conf="${_repodata[yum_repo_src_conf]}"
     local _yum_repo_dest_conf="${_repodata[yum_repo_dest_conf]}"
-    local _yum_pki_src_path="${_repodata[yum_repo_src_path]}"
-    local _yum_pki_dest_path="${_repodata[yum_repo_dest_path]}"
+    local _yum_pki_src_path="${_repodata[yum_pki_src_path]}"
+    local _yum_pki_dest_path="${_repodata[yum_pki_dest_path]}"
 
     if [ -z "$_inst_root" ] ; then
         printf "%s: Missing yum install root\n" $_func
@@ -1453,22 +1598,6 @@ function copy_repo_config {
         return 1
     fi
 
-    local _file
-    local _repo_files
-    local _repo_tgt_file
-    local _cerfiles
-    local _certsrc
-    local _certdir
-    local _certpath
-
-    local _inst_root="${_repodata[yum_install_path]}"
-    local _yum_repo_src_path="${_repodata[yum_repo_src_path]}"
-    local _yum_repo_dest_path="${_repodata[yum_repo_dest_path]}"
-    local _yum_repo_src_conf="${_repodata[yum_repo_src_conf]}"
-    local _yum_repo_dest_conf="${_repodata[yum_repo_dest_conf]}"
-    local _yum_pki_src_path="${_repodata[yum_pki_src_path]}"
-    local _yum_pki_dest_path="${_repodata[yum_pki_dest_path]}"
-
     printf "%s: inst_root=          %s\n" $_func "${_repodata[yum_install_path]}"
     printf "%s: yum_repo_src_path=  %s\n" $_func "${_repodata[yum_repo_src_path]}"
     printf "%s: yum_repo_dest_path= %s\n" $_func "${_repodata[yum_repo_dest_path]}"
@@ -1476,6 +1605,14 @@ function copy_repo_config {
     printf "%s: yum_repo_dest_conf= %s\n" $_func "${_repodata[yum_repo_dest_conf]}"
     printf "%s: yum_pki_src_path=   %s\n" $_func "${_repodata[yum_repo_src_path]}"
     printf "%s: yum_pki_dest_path=  %s\n" $_func "${_repodata[yum_repo_dest_path]}"
+
+    local _file
+    local _repo_files
+    local _repo_tgt_file
+    local _cerfiles
+    local _certsrc
+    local _certdir
+    local _certpath
 
     # initialize paths
     local _yum_repo_tgt_path="${_inst_root}${_yum_repo_dest_path}"
@@ -2677,6 +2814,7 @@ function copy_iso {
         printf "%s: ERROR missing iso input $_isofile\n" $_func $_isofile
         return 1
     fi
+
     # make sure its an ISO image...
     _ftype=$(file -i "$_isofile")
     if [[ "$_ftype" =~ application/([^;[:space:]]+) ]] ; then
@@ -2697,7 +2835,6 @@ function copy_iso {
     fi
 
     printf "%s (%s, %s, %s)\n" $_func "$1" "$2" "$3"
-
 
     if [ ! -d $_mntdir ] ; then
          mkdir -p $_mntdir
@@ -3524,15 +3661,22 @@ function process_create_args {
 
     # before mandatory args are checked, try samba...
     local _sVals=''
-    if [ -z "${_vals[iso-in]}" ] &&
-       [ ! -z "${_vals[samba_resource]}" ] ; then
-        query_samba_iso _vals _sVals
-        if [ $? -ne 0 ] ; then
-            printf "%s: ISO mount failed!!!\n" $_func
-            return 1
-        fi
-        eval "declare -A _vals="$_sVals
+    process_iso_url _vals _sVals
+    if [ $? -ne 0 ] ; then
+        printf "%s: process_iso_url FAILED!!!\n" $_func
+        return $STATUS_FAIL
     fi
+    eval "declare -A _vals="$_sVals
+
+#    if [ -z "${_vals[iso-in]}" ] &&
+#       [ ! -z "${_vals[samba_resource]}" ] ; then
+#        query_samba_iso _vals _sVals
+#        if [ $? -ne 0 ] ; then
+#            printf "%s: ISO mount failed!!!\n" $_func
+#            return 1
+#        fi
+#        eval "declare -A _vals="$_sVals
+#    fi
 
     # wait we aren't done yet... we need to check for mandatory args
     check_mandatory_args _defs _vals
@@ -3931,7 +4075,7 @@ function build_file {
     if [ -z "$_astr" ] || [ -z "$_argsKey" ] || \
        [ -z "$_defDir" ] || [ -z "${!_astr}" ] ; then
         printf "%s: Incomplete args\n" $_func
-        return 1
+        return $STATUS_FAIL
     fi
 
     _str="declare -A _dummy=${!_astr}"
@@ -3942,9 +4086,13 @@ function build_file {
        # No provided default means build up the path only if
        # something is specified...
        if [ -z "$_defFile" ] ; then
-           return 0
+           return $STATUS_OK
        fi
        _fpath=$_defFile
+    fi
+    # leave anything that looks like a URL alone...
+    if [[ $_fpath =~ ^([A-Za-z]+): ]] ; then
+	return $STATUS_OK
     fi
     _pos=1
     if [ "${_fpath:0:1}" == "~" ] ; then
@@ -3966,7 +4114,7 @@ function build_file {
     # serialize current array and update the array string...
     _var=$(declare -p _bfArgs)
     eval "$_astr="${_var#*=}
-    return 0
+    return $STATUS_OK
 }
 
 #
@@ -4207,6 +4355,9 @@ function default_mkiso_values {
    apply_arg_default _aStr iso.linux_background splash.png
    apply_arg_default _aStr iso.linux_display boot.msg
 
+   # By default, prompt before installing tools
+   apply_arg_default _aStr prompt-for-tools "on"
+
    # regenerate the array from the string...
    #_aStr="declare -A _dummy=$_aStr"
    # eval "declare -A _argVals"=${_aStr#*=}
@@ -4300,7 +4451,7 @@ function do_cmd_create {
 
     printf "%s:: %s\n" $_func "$*"
 
-    check_installed_rpms
+    check_installed_rpms ${MKISO_VALS[prompt-for-tools]}
     exit_on_fail "check_installed_rpms" $?
 
     aname_to_string MKISO_VALS _mstr
@@ -4364,7 +4515,7 @@ function do_cmd_rpm_to_iso {
 
     printf "%s:: %s\n" $_func "$*"
 
-    check_installed_rpms
+    check_installed_rpms ${MKISO_VALS[prompt-for-tools]}
     exit_on_fail "check_installed_rpms" $?
 
     aname_to_string MKISO_VALS _mstr
@@ -4473,6 +4624,7 @@ ARG_DEFS['config-path']='mandatory,single,nolist'
 ARG_DEFS['rsync-opts']='mandatory,multi,list'
 ARG_DEFS['misc-url']='mandatory,multi,list'
 ARG_DEFS['yum_extra_args']='mandatory,multi,list'
+ARG_DEFS['prompt-for-tools']='mandatory,single,nolist'
 
 declare -A array ARG_HELP
 ARG_HELP['baseurl']='Add repo URL to generate a dscrete /etc/yum.conf from invoking host'
@@ -4496,6 +4648,7 @@ ARG_HELP['config-path']='additional configuration files path'
 ARG_HELP['rsync-opts']='options to rsync... e.g. --exclude <dir>'
 ARG_HELP['misc-url']='file URL added to ISO rootdir, e.g. http://files.128technology.com/filename'
 ARG_DEFS['yum_extra_args']='Extra arguments to add to yum operations...'
+ARG_DEFS['prompt-for-tools']='Prompt before installing ISO tools locally (yes/no)'
 
 declare -A MKISO_VALS
 
