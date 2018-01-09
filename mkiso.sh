@@ -1913,7 +1913,7 @@ function pre_process_rpm_list() {
   done
 
   if [ -z "${!_grp_list}" -o "${!_grp_list}" == "" ] &&
-     [ -z "${!_rpm_list}" -o "${_rpm_list}" == "" ] ; then
+     [ -z "${!_rpm_list}" -o "${!_rpm_list}" == "" ] ; then
      printf "%s: ERROR Extracted No RPMs / GROUPs!\n" $_func
      return 1
   fi
