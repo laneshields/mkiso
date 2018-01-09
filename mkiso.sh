@@ -61,6 +61,7 @@ distroverpkg=centos-release
 # kmod-hfsplus requires this repo...
 YUM_ELREPO_CONFIG_FILE='/etc/yum.repos.d/elrepo.repo'
 YUM_ELREPO_GPG_KEY='https://www.elrepo.org/RPM-GPG-KEY-elrepo.org'
+YUM_128T_INSTALL_REPO_CONFIG_FILE='/etc/yum.repos.d/installer.repo'
 
 #
 # Additional RPMS which must be installed in order to
@@ -252,6 +253,26 @@ enabled=0
 gpgcheck=1
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-elrepo.org
 protect=0
+EOF"
+return $?
+}
+
+function create_128t_install_repo {
+sudo bash -c "cat > $YUM_ELREPO_CONFIG_FILE << EOF
+###
+### 128T Installer repository.  Used to start the 128T
+### installation process.
+###
+[128t-installer]
+name=128 Technology Installer
+failovermethod=priority
+sslverify=0
+baseurl=https://west.yum.128technology.com/installer/repo/Release
+enabled=1
+metadata_expire=3600
+gpgcheck=0
+skip_if_unavailable=0
+keepcache = 0
 EOF"
 return $?
 }
@@ -496,6 +517,22 @@ function check_installed_rpms {
              sudo yum -y install epel-release
              if [ $? -ne 0 ] ; then
                   printf "%s: Install EPEL Repository FAILED\n" $_func
+                  return 1
+             fi
+        fi
+    fi
+
+    # Check for the 128T installer repository...
+    printf "%s: Check REPO 128t-installer...\n" $_func
+    yum repolist | grep 128t-installer  &> /dev/null
+    if [ $? -ne 0 -a ! -f $YUM_128T_INSTALL_REPO_CONFIG_FILE ] ; then
+        echo "-----------------------------------------------"
+        echo -n "Install Yum 128TInstall Configuration [n/y]: "
+        read _doit
+        if [ ! -z "$_doit" -a "$_doit"=="y" ] ; then
+             create_128t_install_repo
+             if [ $? -ne 0 ] ; then
+                  printf "%s:Install $YUM_128T_INSTALL_REPO_CONFIG_FILE FAILED\n" $_func
                   return 1
              fi
         fi
@@ -1803,6 +1840,87 @@ function move_groups_to_front {
    return 0
 }
 
+function pre_process_rpm_list() {
+  local      _func=${FUNCNAME}
+  local      _list=$1
+  local  _rpm_list=$2
+  local  _grp_list=$3
+  local _copy_list=$4
+
+  local _file
+  local _filestr
+  local _files
+
+  if [ -z "$_list" ] ; then
+      printf "%s: input list not provided\n" $_func
+      return 1
+  fi
+  if [ -z "$_rpm_list" ] ; then
+      printf "%s: output rpm list not provided\n" $_func
+      return 1
+  fi
+  if [ -z "$_grp_list" ] ; then
+      printf "%s: output group list not provided\n" $_func
+      return 1
+  fi
+  if [ -z "$_copy_list" ] ; then
+      printf "%s: output copy list not provided\n" $_func
+      return 1
+  fi
+
+  # empty lists
+  eval ${_rpm_list}=""
+  eval ${_grp_list}=""
+  eval ${_copy_list}=""
+
+  # move groups tp front of list...
+  move_groups_to_front ${_list}
+
+  for _file in ${!_list} ; do
+      echo "process $_list $_file..."
+      if [ $_file == '' -o ${#_file} -le 2 ] ; then
+          continue
+      fi
+      # '-' prefix is relevant only to kickstart; just strip it
+      if [ "${_file:0:1}" == "-" ] ; then
+          _file=${_file:1}
+      fi
+      if [ "${_file:0:1}" == "+" ] ; then
+          add_to_list ${_rpm_list} ${_file:1}
+          add_to_list ${_copy_list} ${_file:1}
+      elif [ "${_file:0:1}" == "@" ] ; then
+          add_to_list ${_rpm_list} ${_file}
+      elif [ "${_file:0:2}" == "\'@" ] ; then
+          add_to_list ${_grp_list} ${_file:1}
+      elif [ "${_file:0:1}" == "~" ] ; then
+          _filestr=`ls -1t ${_file:1}*.rpm`
+          if [  $? -eq 0 -a ! -z "$_filestr" ] ; then
+              _files=($_filestr)
+              if [ ${#_files[@]} -gt 0 ] ; then
+                 add_to_list ${_rpm_list} ${_files[0]}
+                 add_to_list ${_copy_list} ${_files[0]}
+              else
+                  printf "%s: ERROR No rpm match-2 for: $_file\n" $_func
+                  return 1
+              fi
+           else
+               printf "%s: ERROR No rpm match-1 for: $_file\n" $_func
+               return 1
+           fi
+      else
+          add_to_list ${_rpm_list} ${_file}
+      fi
+  done
+
+  if [ -z "${!_grp_list}" -o "${!_grp_list}" == "" ] &&
+     [ -z "${!_rpm_list}" -o "${!_rpm_list}" == "" ] ; then
+     printf "%s: ERROR Extracted No RPMs / GROUPs!\n" $_func
+     return 1
+  fi
+
+  return 0
+}
+
 #
 # yum_download:
 #
@@ -1996,87 +2114,57 @@ function yum_download {
   # Do the various installs
   _cmdArgs=("--installroot=$_instRootPath" "--downloaddir=$_rpmDloadPath" "$_xtraArgs")
 
-  # This may be a problem if each group is a space separated word...
-  if [ ! -z "$_grpList" -a "$_grpList" != "" ] ; then
-      _grpArgs=(groupinstall "${_cmdArgs[*]}" "$_grpList")
-      printf "%s: %s %s\n" $_func "$_cmd" "${_grpArgs[*]}"
-      $_cmd ${_grpArgs[@]}
+  local _listCount=1
+  local _pkgLists="_instList _deferInst"
+  for _pkgList in ${_pkgLists} ; do
+      pre_process_rpm_list $_pkgList _rpmList _grpList _copyList
       if [ $? -ne 0 ] ; then
-          printf "%s: ERROR yum groupinstall FAILED!\n" $_func
+          printf "%s: pre_process_rpm_list(%s...) FAILED!\n" $_func $_pkglist
           return 1
       fi
-  fi
 
-  # Build up pre and post extra rpm deletion lists
-  # when used with a kernel, prevents the wrong kernel from
-  # being set as grub default.  May have unanticipated
-  # consequences...
-  if [ ! -z "${_deferInst}" ] ; then
-      for _rpm in ${_rpmList} ; do
-          for _pat in ${_deferInst} ; do
-              if [[ ! $_rpm =~ $_pat ]] ; then
-                  if [ -z "$_preRpmList" ] ; then
-                      _preRpmList=$_rpm
-                  else
-                      _preRpmList="$_preRpmList $_rpm"
-                  fi
-                  printf "%s: pass 1 install for %s\n" $_func $_rpm
-              else
-                  if [ -z "_$postRpmList" ] ; then
-                      _postRpmList=$_rpm
-                  else
-                      _postRpmList="$_postRpmList $_rpm"
-                  fi
-                  printf "%s: pass 2 install for %s\n" $_func $_rpm
+      # This may be a problem if each group is a space separated word...
+      if [ ! -z "$_grpList" -a "$_grpList" != "" ] ; then
+          _grpArgs=(groupinstall "${_cmdArgs[*]}" "$_grpList")
+          printf "%s: %s %s\n" $_func "$_cmd" "${_grpArgs[*]}"
+          $_cmd ${_grpArgs[@]}
+          if [ $? -ne 0 ] ; then
+              printf "%s: ERROR yum groupinstall #%d FAILED!\n" $_func ${_listCount}
+              return 1
+          fi
+      fi
+
+      if [ ! -z "$_rpmList" -a "$_rpmList" != "" ] ; then
+          _rpmArgs=(install "${_cmdArgs[@]}" $_rpmList)
+          printf "%s: #1 %s %s\n" $_func "$_cmd" "${_rpmArgs[*]}"
+          $_cmd ${_rpmArgs[@]}
+          if [ $? -ne 0 ] ; then
+              printf "%s: ERROR yum install #%d FAILED!\n" $_func ${_listCount}
+              return 1
+          fi
+      fi
+
+      # delete whatever is specified from the rpm download area
+      if [ ${_listCount} -eq 1 ] ; then
+          for _pat in $_delExtra ; do
+              printf "%s: remove %s\n" $_func "${_rpmDloadPath}/${_pat}*.rpm"
+              rm -f ${_rpmDloadPath}/${_pat}*.rpm
+          done
+      fi
+
+      if [ ! -z "$_copyList" ] ; then
+          for _file in $_copyList; do
+              printf "%s: copy #%d %s -> %s\n" $_func ${_listCount} "$_file" "$_rpmDloadPath"
+              cp "$_file" "$_rpmDloadPath"
+              if [ $? -ne 0 ] ; then
+                  printf "%s: RPMLIST copy failed\n" $_func
+                  return 1
               fi
           done
-      done
-  else
-      # copy to prelist if no defer patterns...
-      _preRpmList="${_rpmList}"
-  fi
-
-  printf "%s: preList='%s'\n" $_func "$_preRpmList"
-  printf "%s: postList='%s'\n" $_func "$_postRpmList"
-
-  _rpmList=$_preRpmList
-  if [ ! -z "$_rpmList" -a "$_rpmList" != "" ] ; then
-      _rpmArgs=(install "${_cmdArgs[@]}" $_rpmList)
-      printf "%s: #1 %s %s\n" $_func "$_cmd" "${_rpmArgs[*]}"
-      $_cmd ${_rpmArgs[@]}
-      if [ $? -ne 0 ] ; then
-          printf "%s: ERROR yum install #1 FAILED!\n" $_func
-          return 1
       fi
-  fi
 
-  # delete whatever is specified from the rpm download area
-  for _pat in $_delExtra ; do
-      printf "%s: remove %s\n" $_func "${_rpmDloadPath}/${_pat}*.rpm"
-      rm -f ${_rpmDloadPath}/${_pat}*.rpm
+      _listCount=$((_listCount+1))
   done
-
-  _rpmList=$_postRpmList
-  if [ ! -z "$_rpmList" -a "$_rpmList" != "" ] ; then
-      _rpmArgs=(install "${_cmdArgs[@]}" $_rpmList)
-      printf "%s: #2 %s %s\n" $_func "$_cmd" "${_rpmArgs[*]}"
-      $_cmd ${_rpmArgs[@]}
-      if [ $? -ne 0 ] ; then
-          printf "%s: ERROR yum install #2 FAILED!\n" $_func
-          return 1
-      fi
-  fi
-
-  if [ ! -z "$_copyList" ] ; then
-      for _file in $_copyList; do
-           printf "%s: copy %s -> %s\n" $_func "$_file" "$_rpmDloadPath"
-           cp "$_file" "$_rpmDloadPath"
-           if [ $? -ne 0 ] ; then
-               printf "%s: RPMLIST copy failed\n" $_func
-               return 1
-           fi
-      done
-  fi
 
   # so lame, but sudo yum install changes the ownership of the root install dir
   # to root so we change it back so that the safe path check doesn't fail the
@@ -2346,6 +2434,10 @@ function populate_kickstart {
   if [ -z "$_instList" ] ; then
       printf "%s: ERROR install list!\n" $_func
       return 1
+  fi
+  # Append pkglast so these packages get intalled too...
+  if [ ! -z "${_argVals['pkglast']}" ] ; then
+      _instList=${_instList}" "${_argVals['pkglast']}
   fi
 
   local _rpm
