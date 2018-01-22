@@ -133,6 +133,36 @@ mkiso.sh create --config=128t.cfg --iso-out=/path/to/output.iso
 		   then $HOME/mkiso-workspace/fubar.iso is used as the output
 		   ISO.
 
+COMMAND ${MKISO_BASE_PATH}/mkiso.sh create --config=${MKISO_BASE_PATH}/128t.cfg \\
+        --config-path=${MKISO_BASE_PATH}/128t --pkglast=~${CMAKE_BINARY_DIR}/128T \\
+        --iso-out=${CMAKE_BINARY_DIR} --rpm-to-iso-pattern="128T-[0-9]")
+
+This is an exmple from a CMakefile.
+
+--config:             Path to obtain the ISO config from.
+
+--config-path:        Path to obtain the ISO config profile from.  This overrides the
+                      config file. 
+
+--iso-out:            Use path/to/output the ISO file to.  This can also be a filename
+                      but the --iso-out filename is overwritten by --rpm-to-iso-pattern
+                      so it makes no difference that it would be specified.
+
+--pkglast:            A list of packages to install after --pkglist.  This is usually 
+                      done so that packages matching --pkgdel can bde removed before
+                      --pkglist is installed.
+
+--rpm-to-iso-pattern: A regex to match against --pkglist and --pkglast package lists
+                      to find a package name to use for the output ISO filename.  The 
+                      .rpm extension is replaced with .iso and the path from the
+                      --iso-out parameteer is used (if a filename is specified in
+                      --iso-out it is ignored).
+
+NOTE: The config file in this example contains a parameter:
+      iso-in=http://path/to/source/iso/file.iso.
+
+      which causes mkiso.sh to do a wget for the unput ISO.  Eventually this README should 
+      include more information about iso-in, iso-out etc.
 
 
 test command:
@@ -395,7 +425,7 @@ default using grub2-set-default to set a kernel gleaned from reqoquery --require
 
 --pkgdel
 A multi-list of package prefixes to delete (using the bash glob syntax) after the first 
-pass of package intsallation.
+pass of package installation.
 
 Example:
 --pkgdel={foo bar}
@@ -404,11 +434,23 @@ mkiso.sh would perform rm -f foo*.rpm bar*.rpm in the workspace tum_rpm_download
 prior to executing the second pass of RPM mock-installs
 
 --pkglast
-Specifies patterns of package names (RPMs) to defer gathering for until the second
-mock-install pass (after --pkgdel patterns are deleted)
+Specifies packages (RPMs) to defer gathering until the second mock-install pass (after 
+--pkgdel patterns are deleted).  This parameter has changed recently in support of 
+integration with build systems.  
 
-Example:
---pkglist={-@base @core foo bar}
+Formerly --pkglast was applied as a filter to the RPMs specified in --pkglist.  Specifying a
+package in --pkglast will now cause it to be installed rather than selecting a package or 
+packages to install from the --pkglist parameter.  The former usage of --pkglist could
+potentially result in two different instances of the same package being installed if a
+similarly named RPM is present in --pkglist.
+
+Current Example:
+--pkglist={-@base @core}
+--pkglast={foo bar}
+
+Former Example:
+# Remove { foo bar } from --pkglist to ensure correct functionality.
+--pkglist={-@base @core foo bar}   
 --pkglast={foo bar}
 
 Any RPM package regex matching foo or bar (This is different matching than used for 
@@ -416,7 +458,7 @@ Any RPM package regex matching foo or bar (This is different matching than used 
 @core) and the package deletion step (driven by the --pkgdel parameter).
 
 Another Example:
---pkglist={@core -@base lshw ipmi-tools salt-minion}
+--pkglist={@core -@base lshw ipmi-tools}
 --pkgdel={ipmi-tools}
 --pkglast={salt-minion}
 
