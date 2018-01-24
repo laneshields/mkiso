@@ -1914,8 +1914,7 @@ function pre_process_rpm_list() {
 
   if [ -z "${!_grp_list}" -o "${!_grp_list}" == "" ] &&
      [ -z "${!_rpm_list}" -o "${!_rpm_list}" == "" ] ; then
-     printf "%s: ERROR Extracted No RPMs / GROUPs!\n" $_func
-     return 1
+     printf "%s: Extracted No RPMs / GROUPs!\n" $_func
   fi
 
   return 0
@@ -2121,6 +2120,16 @@ function yum_download {
       if [ $? -ne 0 ] ; then
           printf "%s: pre_process_rpm_list(%s...) FAILED!\n" $_func $_pkglist
           return 1
+      fi
+      if [ -z "$_grpList" -o "$_grpList" == "" ] &&
+	 [ -z "$_rpmList" -o "$_rpmList" == "" ] ; then
+	  if [ "$_pkgList" == "_instList" ] ; then
+	      printf "%s: No RPMs / GROUPs for mandatory pkglist parameter!!!\n" $_func
+	      return 1
+          else
+	      printf "%s: No RPMs / GROUPs for package list; skipping...\n" $_func
+	      continue
+          fi
       fi
 
       # This may be a problem if each group is a space separated word...
