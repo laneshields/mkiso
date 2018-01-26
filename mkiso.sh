@@ -1460,9 +1460,10 @@ function add_to_list {
    fi
 
    if [ -z "${!_name}"  -o "${!_name}" == "" ] ; then
-        eval "$_name=$_value"
+        # prevent globbing..
+        eval ${_name}='"${_value}"'
    else
-        eval "$_name=$\"${!_name}$_delim$_value\""
+        eval $_name='"${!_name}$_delim$_value"'
    fi
 
    return 0
@@ -1966,6 +1967,7 @@ function yum_download {
   local _delExtra=${_args[pkgdel]}
   local _yumConfFile=${_args[yum-conf]}
   local _yum_extra_args=${_args[yum_extra_args]}
+  local _iso_pattern=${_args[rpm-to-iso-pattern]}
 
   local _filestr=''
   local _files=()
@@ -2015,50 +2017,6 @@ function yum_download {
   if [ $? -ne 0 ] ; then
       printf "%s: copy_repo_config FAILED!\n" $_func
       return 1
-  fi
-
-  # do groups first...
-  move_groups_to_front _instList
-
-  for _file in $_instList ; do
-      if [ $_file == '' -o ${#_file} -le 2 ] ; then
-          continue
-      fi
-      # '-' prefix is relevant only to kickstart; just strip it
-      if [ "${_file:0:1}" == "-" ] ; then
-          _file=${_file:1}
-      fi
-      if [ "${_file:0:1}" == "+" ] ; then
-          add_to_list _rpmList ${_file:1}
-          add_to_list _copyList ${_file:1}
-      elif [ "${_file:0:1}" == "@" ] ; then
-          add_to_list _rpmList ${_file}
-      elif [ "${_file:0:2}" == "\'@" ] ; then
-          add_to_list _grpList ${_file:1}
-      elif [ "${_file:0:1}" == "~" ] ; then
-          _filestr=`ls -1t ${_file:1}*.rpm`
-          if [  $? -eq 0 -a ! -z "$_filestr" ] ; then
-              _files=($_filestr)
-              if [ ${#_files[@]} -gt 0 ] ; then
-                 add_to_list _rpmList ${_files[0]}
-                 add_to_list _copyList ${_files[0]}
-              else
-                  printf "%s: ERROR No rpm match-2 for: $_file\n" $_func
-                  return 1
-              fi
-           else
-               printf "%s: ERROR No rpm match-1 for: $_file\n" $_func
-               return 1
-           fi
-      else
-          add_to_list _rpmList ${_file}
-      fi
-  done
-
-  if [ -z "$_grpList" -o "$_grpList" == "" ] &&
-     [ -z "$_rpmList" -o "$_rpmList" == "" ] ; then
-     printf "%s: ERROR Extracted No RPMs / GROUPs!\n" $_func
-     return 1
   fi
 
   local _rpmArgs=''
@@ -2115,6 +2073,8 @@ function yum_download {
 
   local _listCount=1
   local _pkgLists="_instList _deferInst"
+  local _iso_match=''
+  local _iso_path=''
   for _pkgList in ${_pkgLists} ; do
       pre_process_rpm_list $_pkgList _rpmList _grpList _copyList
       if [ $? -ne 0 ] ; then
@@ -2145,7 +2105,7 @@ function yum_download {
 
       if [ ! -z "$_rpmList" -a "$_rpmList" != "" ] ; then
           _rpmArgs=(install "${_cmdArgs[@]}" $_rpmList)
-          printf "%s: #1 %s %s\n" $_func "$_cmd" "${_rpmArgs[*]}"
+          printf "%s: #%d %s %s\n" $_func ${_listCount} "$_cmd" "${_rpmArgs[*]}"
           $_cmd ${_rpmArgs[@]}
           if [ $? -ne 0 ] ; then
               printf "%s: ERROR yum install #%d FAILED!\n" $_func ${_listCount}
@@ -2170,6 +2130,23 @@ function yum_download {
                   return 1
               fi
           done
+      fi
+
+      # Check for first matching rpms to use for ISO name.  This does not change
+      # ${_args[iso-out]} only $ISO_CREATE_FILE_PATH!!!
+      if [ ! -z "$_rpmList" ] && [ ! -z "$_iso_pattern" ]; then
+	  if [[ "$_rpmList" =~ [[:space:]]*($_iso_pattern.*?)[[:space:]]* ]] ; then
+               if [ ! -z "${BASH_REMATCH[1]}" ] ; then
+		    _iso_match=${BASH_REMATCH[1]}
+		    echo "Extracted $_iso_match"
+                    _iso_match=`basename $_iso_match`
+                    _iso_match=${_iso_match%.rpm}
+                    _iso_match=$_iso_match'.iso'
+		    _iso_path=`dirname $ISO_CREATE_FILE_PATH`
+                    ISO_CREATE_FILE_PATH=$_iso_path"/"$_iso_match
+		    echo "ISO_CREATE_FILE_PATH:=$ISO_CREATE_FILE_PATH"
+               fi
+          fi
       fi
 
       _listCount=$((_listCount+1))
@@ -3718,6 +3695,7 @@ function process_create_args {
     _defs['misc-file']='optional,multi,list'
     _defs['misc-url']='optional,multi,list'
     _defs['yum_extra_args']='optional,multi,list'
+    _defs['rpm-to-iso-pattern']='optional,single,nolist'
 
     # grab the command line arguments...
     process_args 'cmdline' _defs $_aStrName $@
@@ -3854,6 +3832,7 @@ function process_rpm_to_iso_args {
     _defs[misc-file]='optional,multi,list'
     _defs[misc-url]='optional,multi,list'
     _defs[yum_extra_args]='optional,multi,list'
+    _defs[rpm-to-iso-pattern]='optional,single,nolist'
 
     _help[rpm-file]='filename with rpm list from rpm -qa'
 
@@ -3982,6 +3961,7 @@ function process_test_args {
     _defs[misc-file]='optional,multi,list'
     _defs[misc-url]='optional,multi,list'
     _defs[yum_extra_args]='optional,multi,list'
+    _defs[rpm-to-iso-pattern]='optional,single,nolist'
 
     # grab the command line arguments...
     process_args 'cmdline' _defs $_aStrName $@
@@ -4091,6 +4071,7 @@ function process_repo_args {
     _defs['iso-out']='optional,single,nolist'
     _defs['misc-url']='optional,multi,list'
     _defs['yum_extra_args']='optional,multi,list'
+    _defs['rpm-to-iso-pattern']='optional,single,nolist'
 
     # grab the command line arguments...
     process_args 'cmdline' _defs $_aStrName $@
@@ -4202,7 +4183,8 @@ function build_file {
         fi
         _fpath="$HOME"/"${_fpath:$_pos}"
     fi
-    if [ "${_fpath:0:1}" != "/" ] ; then
+    if [ "${_fpath:0:1}" != "/" ] && \
+       [[ "${_fpath:0:1}" =~ [0-9a-zA-Z\.] ]] ; then
        _fpath=$_defDir'/'$_fpath
     fi
     if [ -d "$_fpath" ] ; then
@@ -4259,7 +4241,11 @@ function build_path {
     eval "declare -A _args="${_str#*=}
 
     if [ -z "${_args[$_argKey]}" ] ; then
-        _args[$_argKey]="$_defaultDir/$_defaultLeaf"
+        if [ "$_defaultLeaf" != "." ] ; then
+            _args[$_argKey]="$_defaultDir/$_defaultLeaf"
+        else
+            _args[$_argKey]="$_defaultDir"
+        fi
     elif [ ${_args[$_argKey]:0:1} != '/' ] ; then
         _args[$_argKey]=$_defaultDir'/'${_args[$_argKey]}
     fi
@@ -4597,7 +4583,7 @@ function do_cmd_create {
     printf "#                    ISO Creation SUCCESS\n"
     printf "# \n"
     printf "# New ISO is located at: \n"
-    printf "# %s\n" ${MKISO_VALS[iso-out]}
+    printf "# %s\n" ${ISO_CREATE_FILE_PATH}
     output_n_chars '#' 75
 }
 
@@ -4726,6 +4712,7 @@ ARG_DEFS['rsync-opts']='mandatory,multi,list'
 ARG_DEFS['misc-url']='mandatory,multi,list'
 ARG_DEFS['yum_extra_args']='mandatory,multi,list'
 ARG_DEFS['prompt-for-tools']='mandatory,single,nolist'
+ARG_DEFS['rpm-to-iso-pattern']='mandatory,single,nolist'
 
 declare -A array ARG_HELP
 ARG_HELP['baseurl']='Add repo URL to generate a dscrete /etc/yum.conf from invoking host'
@@ -4750,6 +4737,7 @@ ARG_HELP['rsync-opts']='options to rsync... e.g. --exclude <dir>'
 ARG_HELP['misc-url']='file URL added to ISO rootdir, e.g. http://files.128technology.com/filename'
 ARG_DEFS['yum_extra_args']='Extra arguments to add to yum operations...'
 ARG_DEFS['prompt-for-tools']='Prompt before installing ISO tools locally (yes/no)'
+ARG_DEFS['rpm-to-iso-pattern']='Regex to obtain iso name from matching package'
 
 declare -A MKISO_VALS
 
