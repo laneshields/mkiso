@@ -149,19 +149,19 @@ This is an exmple from a CMakefile.
                       so it makes no difference that it would be specified.
 
 --pkglast:            A list of packages to install after --pkglist.  This is usually 
-                      done so that packages matching --pkgdel can bde removed before
+                      done so that packages matching --pkgdel can be removed before
                       --pkglist is installed.
 
 --rpm-to-iso-pattern: A regex to match against --pkglist and --pkglast package lists
                       to find a package name to use for the output ISO filename.  The 
                       .rpm extension is replaced with .iso and the path from the
-                      --iso-out parameteer is used (if a filename is specified in
+                      --iso-out parameter is used (if a filename is specified in
                       --iso-out it is ignored).
 
 NOTE: The config file in this example contains a parameter:
       iso-in=http://path/to/source/iso/file.iso.
 
-      which causes mkiso.sh to do a wget for the unput ISO.  Eventually this README should 
+      which causes mkiso.sh to do a wget for the input ISO.  Eventually this README should 
       include more information about iso-in, iso-out etc.
 
 
