@@ -714,7 +714,7 @@ function get_http_iso() {
 
     _astr=$(declare -p $_aname)
     eval "declare -A _args="${_astr#*=}
-    
+
     _isofn=`basename ${_args[iso-in]}`
     if [ -z "${_isofn}" ] ; then
          print_error "$_func: iso filename not provided!"
@@ -731,7 +731,7 @@ function get_http_iso() {
 
     cd ${_wget_path}
     printf "$_func: wget -N ${args[iso-in]} -> ${_wget_path}\n"
-    wget -N ${_args[iso-in]} 
+    wget -N ${_args[iso-in]}
     _status=$?
     cd $_origdir
 
@@ -745,7 +745,7 @@ function get_http_iso() {
 
     _astr=$(declare -p _args)
     eval "$_sout="${_astr#*=}
-    
+
     return $STATUS_SUCESS
 }
 
@@ -767,7 +767,7 @@ function process_iso_url {
         print_error "$_func: No output string passed!"
         return $STATUS_FAIL
     fi
- 
+
     _pstr=$(declare -p $_pname)
     eval "declare -A _params="${_pstr#*=}
     _proto=''
@@ -786,7 +786,7 @@ function process_iso_url {
     # Do something only if a protocol is extracted
     if [ "$_proto" != "" ]  ; then
         if [ ! -z ${URL_HELPER_FUNCS[$_proto]} ] ; then
-            printf "%s: eval %s _params _pstr\n" $_func ${URL_HELPER_FUNCS[$_proto]} 
+            printf "%s: eval %s _params _pstr\n" $_func ${URL_HELPER_FUNCS[$_proto]}
             eval "${URL_HELPER_FUNCS[$_proto]} _params _pstr"
             _status=$?
             if [ $_status -ne 0 ] ; then
@@ -795,7 +795,7 @@ function process_iso_url {
             fi
             # put the array back together...
             eval "declare -A _params="$_pstr
-        else 
+        else
             print_error "$_func: Unsupported URL proto $_proto"
         fi
     else
@@ -2082,13 +2082,13 @@ function yum_download {
           return 1
       fi
       if [ -z "$_grpList" -o "$_grpList" == "" ] &&
-	 [ -z "$_rpmList" -o "$_rpmList" == "" ] ; then
-	  if [ "$_pkgList" == "_instList" ] ; then
-	      printf "%s: No RPMs / GROUPs for mandatory pkglist parameter!!!\n" $_func
-	      return 1
+         [ -z "$_rpmList" -o "$_rpmList" == "" ] ; then
+          if [ "$_pkgList" == "_instList" ] ; then
+              printf "%s: No RPMs / GROUPs for mandatory pkglist parameter!!!\n" $_func
+              return 1
           else
-	      printf "%s: No RPMs / GROUPs for package list; skipping...\n" $_func
-	      continue
+              printf "%s: No RPMs / GROUPs for package list; skipping...\n" $_func
+              continue
           fi
       fi
 
@@ -2135,16 +2135,16 @@ function yum_download {
       # Check for first matching rpms to use for ISO name.  This does not change
       # ${_args[iso-out]} only $ISO_CREATE_FILE_PATH!!!
       if [ ! -z "$_rpmList" ] && [ ! -z "$_iso_pattern" ]; then
-	  if [[ "$_rpmList" =~ [[:space:]]*($_iso_pattern.*?)[[:space:]]* ]] ; then
+          if [[ "$_rpmList" =~ [[:space:]]*($_iso_pattern.*?)[[:space:]]* ]] ; then
                if [ ! -z "${BASH_REMATCH[1]}" ] ; then
-		    _iso_match=${BASH_REMATCH[1]}
-		    echo "Extracted $_iso_match"
+                    _iso_match=${BASH_REMATCH[1]}
+                    echo "Extracted $_iso_match"
                     _iso_match=`basename $_iso_match`
                     _iso_match=${_iso_match%.rpm}
                     _iso_match=$_iso_match'.iso'
-		    _iso_path=`dirname $ISO_CREATE_FILE_PATH`
+                    _iso_path=`dirname $ISO_CREATE_FILE_PATH`
                     ISO_CREATE_FILE_PATH=$_iso_path"/"$_iso_match
-		    echo "ISO_CREATE_FILE_PATH:=$ISO_CREATE_FILE_PATH"
+                    echo "ISO_CREATE_FILE_PATH:=$ISO_CREATE_FILE_PATH"
                fi
           fi
       fi
@@ -2724,8 +2724,8 @@ function copy_files {
 #
 # copy_urls
 #
-# Populates $ISO_STAGING_PATH/downloads with the URLS specified using the 
-# misc-url directive.  
+# Populates $ISO_STAGING_PATH/downloads with the URLS specified using the
+# misc-url directive.
 #
 # Note that there is no way for mkiso to know why these files are needed.  In
 # some cases it may be necessary to copy the downloaded files from the ISO
@@ -2774,7 +2774,7 @@ function copy_urls {
         fi
         printf "%s: %s -> %s\n" $_func $_src $_dloadpath
     done
-    
+
     return 0
 }
 
@@ -3446,10 +3446,19 @@ function mkiso {
        return 1
    fi
 
+   _sumpath=${_pathOut}
+
    # For information purposes, this is the m5 sum which was inserted
-   md5sum $_pathOut &> ${_pathOut}.md5
+   md5sum ${_pathOut} &> "${_sumpath}.md5"
    if [ $? -ne 0 ] ; then
        printf "%s: md5sum failed\n" $_func
+       return 1
+   fi
+
+   # For file integrity, this is the sha256sum of the ISO
+   sha256sum $_pathOut &> "${_sumpath}.sha256"
+   if [ $? -ne 0 ] ; then
+       printf "%s: sha256sum failed\n" $_func
        return 1
    fi
 
