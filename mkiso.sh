@@ -3446,23 +3446,41 @@ function mkiso {
        return 1
    fi
 
-   _sumpath=${_pathOut}
-
-   # For information purposes, this is the m5 sum which was inserted
-   md5sum ${_pathOut} &> "${_sumpath}.md5"
-   if [ $? -ne 0 ] ; then
-       printf "%s: md5sum failed\n" $_func
+   local _sumpath=${_pathOut}
+   local _sumdir=`dirname ${_sumpath}`
+   local _sumfile=`basename ${_sumpath}`
+   local _status=0
+   
+   if [ -z "${_sumdir}" ] ; then
+       printf "%s: Cannot Extract SUMS Directory" $_func
        return 1
+   fi
+
+   if [ -z "${_sumfile}" ] ; then
+       printf "%s: Cannot Extract SUMS File" $_func
+       return 1
+   fi
+
+   pushd
+   cd ${_sumdir}
+   # For information purposes, this is the m5 sum which was inserted
+   md5sum ${_sumfile} &> "${_sumpath}.md5"
+   _status=$?
+   if [ $_status -ne 0 ] ; then
+       printf "%s: md5sum failed\n" $_func
    fi
 
    # For file integrity, this is the sha256sum of the ISO
-   sha256sum $_pathOut &> "${_sumpath}.sha256"
-   if [ $? -ne 0 ] ; then
-       printf "%s: sha256sum failed\n" $_func
-       return 1
+   if [ $_status -eq 0 ] ; then
+       sha256sum ${_sumfile} &> "${_sumpath}.sha256"
+       _status=$?
+       if [ $_status -ne 0 ] ; then
+           printf "%s: sha256sum failed\n" $_func
+       fi
    fi
 
-   return 0
+   popd
+   return $_status
 }
 
 #
