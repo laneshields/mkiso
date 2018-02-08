@@ -480,8 +480,8 @@ function check_installed_rpms {
     # Check for the elrepo repository...
     printf "%s: Check REPO EL...\n" $_func
     yum repolist | grep elrepo &> /dev/null
-    if [ $? -ne 0 -a ! -f $YUM_ELREPO_CONFIG_FILE ] ; then
-        if [ -z "$1" -o ${1^^} == "ON" ] ; then
+    if [[ $? -ne 0 && ! -f $YUM_ELREPO_CONFIG_FILE ]] ; then
+        if [[ -z "$1" || ${1^^} == "ON" ]] ; then
             echo "-----------------------------------------------"
             echo -n "Install Yum ELREPO Configuration [n/y]: "
             read _doit
@@ -506,7 +506,7 @@ function check_installed_rpms {
     printf "%s: Check REPO EPEL...\n" $_func
     yum repolist | grep epel &> /dev/null
     if [ $? -ne 0 ] ; then
-        if [ -z "$1" -o ${1^^} == "ON" ] ; then
+        if [[ -z "$1" || ${1^^} == "ON" ]] ; then
             echo "-----------------------------------------------"
             echo -n "Install Yum EPEL Configuration [n/y]: "
             read _doit
