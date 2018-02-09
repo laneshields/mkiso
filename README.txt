@@ -1,11 +1,11 @@
 +--------------------------------------------------------------------------
-|              _    _                _     
-|     _ __ ___ | | _(_)___  ___   ___| |__  
-|    | '_ ` _ \| |/ / / __|/ _ \ / __| '_ \ 
+|              _    _                _
+|     _ __ ___ | | _(_)___  ___   ___| |__
+|    | '_ ` _ \| |/ / / __|/ _ \ / __| '_ \
 |    | | | | | |   <| \__ \ (_) |\__ \ | | |
 |    |_| |_| |_|_|\_\_|___/\___(_)___/_| |_|
 |
-|    ISO Builder script 
+|    ISO Builder script
 |
 |    Documentation Version 0.1
 |
@@ -13,11 +13,11 @@
 
 Introduction:
 =============
-mkiso.sh is a command-line tool for creating bootable Linux ISOs.  
+mkiso.sh is a command-line tool for creating bootable Linux ISOs.
 
 mkiso starts with a Linux distributed on an ISO.  For example,
- CentOS-7-x86_64-Minimal-1611.iso is the default, which can be acquired via 
-SAMBA on the corporate network if no input file is specified on the command 
+ CentOS-7-x86_64-Minimal-1611.iso is the default, which can be acquired via
+SAMBA on the corporate network if no input file is specified on the command
 line or in a  configuration file.
 
 Two commands can then be used to alter the ISO content to create a custom
@@ -26,13 +26,13 @@ installation environment:
 1) mkiso.sh create
 2) mkiso rpm2iso
 
-The former relies heavily on packages and other parameters configured 
-in the configuration file to construct yum --installroot environment 
-which downloads the specified packaged and dependencies and populates a 
-new ISO which automatically installs (by use of an Anaconda kickstart file) 
+The former relies heavily on packages and other parameters configured
+in the configuration file to construct yum --installroot environment
+which downloads the specified packaged and dependencies and populates a
+new ISO which automatically installs (by use of an Anaconda kickstart file)
 the packages requested. It also can stage a number of files, some of which can be
 altered per mkiso.sh run by use of templates to further customize
-the install processand its %pre and %post phases. 
+the install processand its %pre and %post phases.
 
 The latter is similar except that a file containg a list of rpms
 (from rpm -qa) is used as the package list rather than configuration
@@ -42,8 +42,8 @@ One other command of note, is:
 o mkiso.sh test
 
 This command takes a ISO, generates a single ISO-based yum repository,
-looks to the kickstart file for packages to install and performs a 
-yum install --installroot to give some degree certainty that the ISO might 
+looks to the kickstart file for packages to install and performs a
+yum install --installroot to give some degree certainty that the ISO might
 actually install.
 
 
@@ -69,7 +69,7 @@ total 28
 -rw-r--r-- 1 user group  121 Mar 17 19:55 ifcfg-dpX         (interface config files)
 -rw-r--r-- 1 user group  228 Mar 17 19:55 ifcfg-mgmt        (interface config files)
 -rw-r--r-- 1 user group 3329 Mar 17 19:55 isolinux.cfg      (more boot menu config)
--rw-rw-r-- 1 user group  302 Mar 17 19:55 README.txt        
+-rw-rw-r-- 1 user group  302 Mar 17 19:55 README.txt
 
 ./minion:
 total 16
@@ -88,7 +88,7 @@ total 16
 
 Create Command:
 ---------------
-The 'create' command is used to generate an ISO from a configuration file 
+The 'create' command is used to generate an ISO from a configuration file
 which specifies which packages etc. should be installed etc. This also
 specifies the kickstart, grub, and additional files to be copied to the
 outut iso.  Some of these files are or can be templatized to allow for
@@ -100,38 +100,39 @@ Examples:
 mkiso.sh create --config=128t.cfg --iso-in=/path/to/CentOS-Minimal-1611.iso
 
 --config=128t.cfg: config file in current directory to drive ISO generation
-		   currently 128t.cfg and minion.cfg are supported
+                   currently 128t.cfg and minion.cfg are supported
 
 --iso-in:          Use /path/to/CentOS-Minimal-1611.iso as the ISO input file
                    to modify.
 
-                   Use default ISO target ($HOME/mkiso-workspace/128T.iso) as
-		   output
+                   Use default ISO target ($PWD/mkiso-workspace/128T.iso) as
+                   output
 
+                   Where $PWD is the current working directory...
 
 mkiso.sh create --config=128t.cfg
 
 --config=128t.cfg: config file in current directory to drive ISO generation
-		   currently 128t.cfg and minion.cfg are supported
+                   currently 128t.cfg and minion.cfg are supported
 
                    Use default input ISO from corp samba mount.  You'll
-		   need to enter LDAP credentials for this.
+                   need to enter LDAP credentials for this.
 
                    Use default ISO target ($HOME/mkiso-workspace/128T.iso) as
-		   output
+                   output
 
 mkiso.sh create --config=128t.cfg --iso-out=/path/to/output.iso
 
 --config=128t.cfg: config file in current directory to drive ISO generation
-		   currently 128t.cfg and minion.cfg are supported
+                   currently 128t.cfg and minion.cfg are supported
 
                    Use default input ISO from corp samba mount.  You'll
-		   need to enter LDAP credentials for this.
+                   need to enter LDAP credentials for this.
 
 --iso-out:         Use path/to/output.iso as the output iso...
-		   output.  If only a filename (i.e. fubar.iso) is specified
-		   then $HOME/mkiso-workspace/fubar.iso is used as the output
-		   ISO.
+                   output.  If only a filename (i.e. fubar.iso) is specified
+                   then $HOME/mkiso-workspace/fubar.iso is used as the output
+                   ISO.
 
 COMMAND ${MKISO_BASE_PATH}/mkiso.sh create --config=${MKISO_BASE_PATH}/128t.cfg \\
         --config-path=${MKISO_BASE_PATH}/128t --pkglast=~${CMAKE_BINARY_DIR}/128T \\
@@ -142,18 +143,18 @@ This is an exmple from a CMakefile.
 --config:             Path to obtain the ISO config from.
 
 --config-path:        Path to obtain the ISO config profile from.  This overrides the
-                      config file. 
+                      config file.
 
 --iso-out:            Use path/to/output the ISO file to.  This can also be a filename
                       but the --iso-out filename is overwritten by --rpm-to-iso-pattern
                       so it makes no difference that it would be specified.
 
---pkglast:            A list of packages to install after --pkglist.  This is usually 
+--pkglast:            A list of packages to install after --pkglist.  This is usually
                       done so that packages matching --pkgdel can be removed before
                       --pkglist is installed.
 
 --rpm-to-iso-pattern: A regex to match against --pkglist and --pkglast package lists
-                      to find a package name to use for the output ISO filename.  The 
+                      to find a package name to use for the output ISO filename.  The
                       .rpm extension is replaced with .iso and the path from the
                       --iso-out parameter is used (if a filename is specified in
                       --iso-out it is ignored).
@@ -161,7 +162,7 @@ This is an exmple from a CMakefile.
 NOTE: The config file in this example contains a parameter:
       iso-in=http://path/to/source/iso/file.iso.
 
-      which causes mkiso.sh to do a wget for the input ISO.  Eventually this README should 
+      which causes mkiso.sh to do a wget for the input ISO.  Eventually this README should
       include more information about iso-in, iso-out etc.
 
 
@@ -193,15 +194,15 @@ o yum-conf  (yum parameters, because a single ISO-only repository is being used)
 o yum_repo_src_conf
 o yum_repo_src_path
 o yum_pki_src_path
-o yum_extra_args 
+o yum_extra_args
 o pkglist (package parameters because these are extracted from the kickstart file)
 o pkgdel
 o pkglast
 
 rpm2iso command:
 ----------------
-This command takes an input ISO, strips out the packages (much like create), 
-replaces the packages with the items specified by the file value for the 
+This command takes an input ISO, strips out the packages (much like create),
+replaces the packages with the items specified by the file value for the
 --rpm-file parameter, and generates an output iso.
 
 The format of the --rpm-file parameter is simply a list of RPMS one can get
@@ -210,8 +211,8 @@ one on the input ISO).
 
 Examples:
 
-mkiso.sh rpm2iso --config=128t.cfg --iso-in=/path/to/CentOS-Minimal-1611.iso 
-	         --rpm-file=/path/to/rpm-list-file.txt      
+mkiso.sh rpm2iso --config=128t.cfg --iso-in=/path/to/CentOS-Minimal-1611.iso
+                 --rpm-file=/path/to/rpm-list-file.txt
 
 --config=128t.cfg: config file in current directory to drive ISO generation
                    currently 128t.cfg and minion.cfg are supported
@@ -219,13 +220,13 @@ mkiso.sh rpm2iso --config=128t.cfg --iso-in=/path/to/CentOS-Minimal-1611.iso
 --iso-in:          Use /path/to/CentOS-Minimal-1611.iso as the ISO input file
                    to modify.
 
-                   Use default ISO target ($HOME/mkiso-workspace/128T.iso) as
+                   Use default ISO target ($PWD/mkiso-workspace/128T.iso) as
                    output
 
 --rpm-file:        File containing explicit list of rpms generated by 'rpm -qa'
 
 
-mkiso.sh rpm2iso --config=128t.cfg --rpm-file=/path/to/rpm-list-file.txt 
+mkiso.sh rpm2iso --config=128t.cfg --rpm-file=/path/to/rpm-list-file.txt
 
 --config=128t.cfg: config file in current directory to drive ISO generation
                    currently 128t.cfg and minion.cfg are supported
@@ -233,14 +234,14 @@ mkiso.sh rpm2iso --config=128t.cfg --rpm-file=/path/to/rpm-list-file.txt
                    Use default input ISO from corp samba mount.  You'll
                    need to enter LDAP credentials for this.
 
-                   Use default ISO target ($HOME/mkiso-workspace/128T.iso) as
+                   Use default ISO target ($PWDE/mkiso-workspace/128T.iso) as
                    output
 
 --rpm-file:        File containing explicit list of rpms generated by 'rpm -qa'
 
 
 mkiso.sh rpm2iso --config=128t.cfg --iso-out=/path/to/output.iso
-                   --rpm-file=/path/to/rpm-list-file.txt 
+                   --rpm-file=/path/to/rpm-list-file.txt
 
 --config=128t.cfg: config file in current directory to drive ISO generation
                    currently 128t.cfg and minion.cfg are supported
@@ -276,7 +277,7 @@ xml file, no package groups will be available in the repo directory created.
 
 These output directories could be used on a yum server as:
 /var/www/repo/<repo-name>/<os-name>/<os-version>/<arch>/Packages
-/var/www/repo/<repo-name>/<os-name>/<os-version>/<arch>/repodata 
+/var/www/repo/<repo-name>/<os-name>/<os-version>/<arch>/repodata
 
 .repo file (normally 7 and x86_64 wold be release and arch variables):
 baseurl=https://repo-server/myrepo/CentOS/7/x86_64
@@ -291,7 +292,7 @@ baseurl=file:///home/user/myrepo
 
 Examples:
 
-mkiso.sh repo --config=128t.cfg 
+mkiso.sh repo --config=128t.cfg
 
 --config=128t.cfg: config file in current directory to define parameters
                    used in repo creation.
@@ -303,7 +304,7 @@ including pkglist, and the iso-staging path (usually defaulted).
 |
 | Details.....
 | ------------
-| Read further if you are interested in overiding parameters or creating your 
+| Read further if you are interested in overiding parameters or creating your
 | own configuration files
 +-------------------------------------------------------------------------------
 
@@ -322,7 +323,7 @@ config-file arguments are preferred over basic default hard-coded into the scrip
                     V
          Hard-coded Default values
 
-Although the tool may be completely controlled by command-line parameters, 
+Although the tool may be completely controlled by command-line parameters,
 It is unlikely that anyone would have the patience to type (or hope their shell
 histoy retained) the 10 plus arguments which night be necessay to completely
 customize the tool's behavior.  Thus it is strongly suggested a configuration file
@@ -348,7 +349,7 @@ Multiple command-line:
   --parameter-1=value --parameter-2=value ... --parameter-n={value value ... value}
 Multiple config-file:
   parameter-1=value
-  parameter-2=value 
+  parameter-2=value
          :
   parameter-n={value value ... value}
 Novalue command-line:
@@ -375,7 +376,7 @@ Specifiying Package Lists:
 ==========================
 Packet lists are used for 2 purposes:
 1) To tell yum what packages to download
-2) To populate the kickstart file with rpms to install (unless specifcally overidden by 
+2) To populate the kickstart file with rpms to install (unless specifcally overidden by
    a prefix... see prefixes, below)
 
 Package list Formatting:
@@ -389,27 +390,27 @@ pkglist={<pkg-spec-1> <pkg-spec-2> ... <pkg-spec-n>}
 
 
 In general packages are specifed uing the latest yum/kickstart syntax:
---pkglist=128T 
+--pkglist=128T
 
 Package List Prefixes:
 ----------------------
-+              Used for RPM files. Copies rpm file to RPM download area so is it included 
++              Used for RPM files. Copies rpm file to RPM download area so is it included
                    In the RPMs copied to the iso-staging area:
-		   Example: --pkglist=+/path/to/my/file.rpm
+                   Example: --pkglist=+/path/to/my/file.rpm
 
 -              Prevents the package / group from being included in the kickstart file.  This
-	           is usually only used with @base in my experience.
-		   Example: --pkglist=-@base
+                   is usually only used with @base in my experience.
+                   Example: --pkglist=-@base
 
 ~              Searches for and use the latest <name>*.rpm file as a package source.
-	           Example: --pkglist=~128T-3.0.0
+                   Example: --pkglist=~128T-3.0.0
 
 WARNING: The following is experimental as kickstart files may not support whitespace
          separated package group names!!!! Use at your own risk.
 
 'group name'   In my experience yum install only suports the single-word package group names.
                    For example @^minimal, but not 'Minimal Install'.  If a packge name is
-		   is enclosed in quotes, it will be resolved with yum groupinstall versus
+                   is enclosed in quotes, it will be resolved with yum groupinstall versus
                    yum install.
 
 When packages are added to the kickstart file, package groups are automatically
@@ -419,12 +420,12 @@ Additional Package Parameters
 -----------------------------
 These parameters were added to allow for later packages than currently allowed by
 a dependent package to be removed before the rpm was mock-installed to gather dependent
-pakage.   In short this is a quick way to avoid determining which kernel to make the grub2 
-default using grub2-set-default to set a kernel gleaned from reqoquery --requires --recurse 
+pakage.   In short this is a quick way to avoid determining which kernel to make the grub2
+default using grub2-set-default to set a kernel gleaned from reqoquery --requires --recurse
 --resolve...
 
 --pkgdel
-A multi-list of package prefixes to delete (using the bash glob syntax) after the first 
+A multi-list of package prefixes to delete (using the bash glob syntax) after the first
 pass of package installation.
 
 Example:
@@ -434,12 +435,12 @@ mkiso.sh would perform rm -f foo*.rpm bar*.rpm in the workspace tum_rpm_download
 prior to executing the second pass of RPM mock-installs
 
 --pkglast
-Specifies packages (RPMs) to defer gathering until the second mock-install pass (after 
---pkgdel patterns are deleted).  This parameter has changed recently in support of 
-integration with build systems.  
+Specifies packages (RPMs) to defer gathering until the second mock-install pass (after
+--pkgdel patterns are deleted).  This parameter has changed recently in support of
+integration with build systems.
 
 Formerly --pkglast was applied as a filter to the RPMs specified in --pkglist.  Specifying a
-package in --pkglast will now cause it to be installed rather than selecting a package or 
+package in --pkglast will now cause it to be installed rather than selecting a package or
 packages to install from the --pkglist parameter.  The former usage of --pkglist could
 potentially result in two different instances of the same package being installed if a
 similarly named RPM is present in --pkglist.
@@ -450,11 +451,11 @@ Current Example:
 
 Former Example:
 # Remove { foo bar } from --pkglist to ensure correct functionality.
---pkglist={-@base @core foo bar}   
+--pkglist={-@base @core foo bar}
 --pkglast={foo bar}
 
-Any RPM package regex matching foo or bar (This is different matching than used for 
---pkgdel), would be mock-installed after both the first mock-install pass (of @base and 
+Any RPM package regex matching foo or bar (This is different matching than used for
+--pkgdel), would be mock-installed after both the first mock-install pass (of @base and
 @core) and the package deletion step (driven by the --pkgdel parameter).
 
 Another Example:
@@ -469,7 +470,7 @@ Another Example:
 
 KickStart File Processing
 =========================
-KickStart files are always copied to the root of the iso-staging area in the 
+KickStart files are always copied to the root of the iso-staging area in the
 mkiso workspace dirctory (./mksio-work-space/iso-staging by default). Unlike other
 files, the destination of this file cannot be changed.
 
@@ -481,7 +482,7 @@ the source file will be missing from the target unless they are specified in the
 The path to the source kickstart file may be specified using the --ks-file=/path/to/ks.cfg
 parameter and value.
 
-The default source kickstart file is determined by the --config-path parameter 
+The default source kickstart file is determined by the --config-path parameter
 plus a default name of 128T-ks.cfg.
 
 If a source directory is specified instead of a file, the default name of 128T-ks.cfg
@@ -502,7 +503,7 @@ or
 --misc-file=<src-path>
 
 o If a dest-path is not present, a default target of the iso-staging root is used
-o If a dest filename is not specified, the filename (not the full path) specified 
+o If a dest filename is not specified, the filename (not the full path) specified
   in the source will be used
 o If the source path does not start with '/' the configuration path defined by the
   --config-path parameter will be applied.
@@ -511,7 +512,7 @@ Templated File Processing
 =========================
 
 
-{{ ISO_VOLUME_NAME }} => --iso.volume_name=FUBAR 
+{{ ISO_VOLUME_NAME }} => --iso.volume_name=FUBAR
 {{ ISO_YOUR_VARIABLE }} => --iso.your_variable={This is how a multi-word value can be entered}
 
 
@@ -521,14 +522,14 @@ pkglist={128T @base @core lshw salt-minion}
 # Yum requires an OS version...
 os-version=7
 
-# Files copied w/o change (not templated) 
+# Files copied w/o change (not templated)
 # the default target is the staging area root
 misc-file=ifcfg-mgmt
 misc-file=ifcfg-dpX
 misc-file=128t-scripts.zip
 misc-file=128t-splash.png,isolinux/128t-splash.png
 
-# Kickstart is not normally a templated file and always 
+# Kickstart is not normally a templated file and always
 # has a target of the staging area root.  kickstart can
 # be templated
 ks-file=128T-ks.cfg
