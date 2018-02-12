@@ -198,17 +198,17 @@ URL_HELPER_FUNCS['smb']=query_samba_iso
 # for kmod-hfsplus (used as part of ISO creation)
 #
 function create_elrepo {
-sudo bash -c "cat > $YUM_ELREPO_CONFIG_FILE << EOF
+sudo bash -c "cat > $YUM_ELREPO_CONFIG_FILE << 'EOF'
 ### Name: ELRepo.org Community Enterprise Linux Repository for el7
 ### URL: http://elrepo.org/
 
 [elrepo]
 name=ELRepo.org Community Enterprise Linux Repository - el7
-baseurl=http://elrepo.org/linux/elrepo/el7/$basearch/
-http://mirrors.coreix.net/elrepo/elrepo/el7/$basearch/
-http://jur-linux.org/download/elrepo/elrepo/el7/$basearch/
-http://repos.lax-noc.com/elrepo/elrepo/el7/$basearch/
-http://mirror.ventraip.net.au/elrepo/elrepo/el7/$basearch/
+baseurl=http://elrepo.org/linux/elrepo/el7/\$basearch/
+http://mirrors.coreix.net/elrepo/elrepo/el7/\$basearch/
+http://jur-linux.org/download/elrepo/elrepo/el7/\$basearch/
+http://repos.lax-noc.com/elrepo/elrepo/el7/\$basearch/
+http://mirror.ventraip.net.au/elrepo/elrepo/el7/\$basearch/
 mirrorlist=http://mirrors.elrepo.org/mirrors-elrepo.el7
 enabled=1
 gpgcheck=1
@@ -217,11 +217,11 @@ protect=0
 
 [elrepo-testing]
 name=ELRepo.org Community Enterprise Linux Testing Repository - el7
-baseurl=http://elrepo.org/linux/testing/el7/$basearch/
-http://mirrors.coreix.net/elrepo/testing/el7/$basearch/
-http://jur-linux.org/download/elrepo/testing/el7/$basearch/
-http://repos.lax-noc.com/elrepo/testing/el7/$basearch/
-http://mirror.ventraip.net.au/elrepo/testing/el7/$basearch/
+baseurl=http://elrepo.org/linux/testing/el7/\$basearch/
+http://mirrors.coreix.net/elrepo/testing/el7/\$basearch/
+http://jur-linux.org/download/elrepo/testing/el7/\$basearch/
+http://repos.lax-noc.com/elrepo/testing/el7/\$basearch/
+http://mirror.ventraip.net.au/elrepo/testing/el7/\$basearch/
 mirrorlist=http://mirrors.elrepo.org/mirrors-elrepo-testing.el7
 enabled=0
 gpgcheck=1
@@ -230,11 +230,11 @@ protect=0
 
 [elrepo-kernel]
 name=ELRepo.org Community Enterprise Linux Kernel Repository - el7
-baseurl=http://elrepo.org/linux/kernel/el7/$basearch/
-http://mirrors.coreix.net/elrepo/kernel/el7/$basearch/
-http://jur-linux.org/download/elrepo/kernel/el7/$basearch/
-http://repos.lax-noc.com/elrepo/kernel/el7/$basearch/
-http://mirror.ventraip.net.au/elrepo/kernel/el7/$basearch/
+baseurl=http://elrepo.org/linux/kernel/el7/\$basearch/
+http://mirrors.coreix.net/elrepo/kernel/el7/\$basearch/
+http://jur-linux.org/download/elrepo/kernel/el7/\$basearch/
+http://repos.lax-noc.com/elrepo/kernel/el7/\$basearch/
+http://mirror.ventraip.net.au/elrepo/kernel/el7/\$basearch/
 mirrorlist=http://mirrors.elrepo.org/mirrors-elrepo-kernel.el7
 enabled=0
 gpgcheck=1
@@ -243,11 +243,11 @@ protect=0
 
 [elrepo-extras]
 name=ELRepo.org Community Enterprise Linux Extras Repository - el7
-baseurl=http://elrepo.org/linux/extras/el7/$basearch/
-http://mirrors.coreix.net/elrepo/extras/el7/$basearch/
-http://jur-linux.org/download/elrepo/extras/el7/$basearch/
-http://repos.lax-noc.com/elrepo/extras/el7/$basearch/
-http://mirror.ventraip.net.au/elrepo/extras/el7/$basearch/
+baseurl=http://elrepo.org/linux/extras/el7/\$basearch/
+http://mirrors.coreix.net/elrepo/extras/el7/\$basearch/
+http://jur-linux.org/download/elrepo/extras/el7/\$basearch/
+http://repos.lax-noc.com/elrepo/extras/el7/\$basearch/
+http://mirror.ventraip.net.au/elrepo/extras/el7/\$basearch/
 mirrorlist=http://mirrors.elrepo.org/mirrors-elrepo-extras.el7
 enabled=0
 gpgcheck=1
@@ -258,7 +258,7 @@ return $?
 }
 
 function create_128t_install_repo {
-sudo bash -c "cat > $YUM_ELREPO_CONFIG_FILE << EOF
+sudo bash -c "cat > $YUM_128T_INSTALL_REPO_CONFIG_FILE << EOF
 ###
 ### 128T Installer repository.  Used to start the 128T
 ### installation process.
@@ -547,7 +547,7 @@ function check_installed_rpms {
         printf "%s: Check RPM %s...\n" $_func $_rpm
         _val=`rpm -qa "$_rpm*"`
         if [ -z "$_val" ] ; then
-            if [ -z "$1" -o ${1^^} == "ON" ] ; then
+            if [[ -z "$1" || ${1^^} == "ON" ]] ; then
                 echo "-----------------------------------------------"
                 echo -n "Install $_rpm [n/y]: "
                 read _doit
@@ -3461,8 +3461,7 @@ function mkiso {
        return 1
    fi
 
-   pushd
-   cd ${_sumdir}
+   pushd ${_sumdir} &> /dev/null
    # For information purposes, this is the m5 sum which was inserted
    md5sum ${_sumfile} &> "${_sumpath}.md5"
    _status=$?
@@ -3479,7 +3478,7 @@ function mkiso {
        fi
    fi
 
-   popd
+   popd &> /dev/null
    return $_status
 }
 
