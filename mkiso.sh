@@ -1314,6 +1314,11 @@ function check_path_safe {
         printf "%s: %s cannot be user home\n" $_func $_path
         return 1
     fi
+    # exec path could be bad also
+    if [ "$_path" == "$MKISO_EXEC_PATH" ] ; then
+        printf "%s: %s cannot be mkiso.sh directory\n" $_func $_path
+        return 1
+    fi
     if [ -z "$WORKSPACE" ] ; then
         printf "%s: WORKSPACE cannot be empty\n" $_func $_path
         return 1
@@ -3450,7 +3455,7 @@ function mkiso {
    local _sumdir=`dirname ${_sumpath}`
    local _sumfile=`basename ${_sumpath}`
    local _status=0
-   
+
    if [ -z "${_sumdir}" ] ; then
        printf "%s: Cannot Extract SUMS Directory" $_func
        return 1
@@ -4402,6 +4407,23 @@ function default_mkiso_values {
    _aStr=$(declare -p _argVals)
    _aStr=${_aStr#*=}
 
+   # The path used to find the config file defaults as the
+   # path for the config directory as well.
+   local _cfgarg=${_argVals['config']}
+   local _cfgpath=`dirname $_cfgarg`
+   echo "CFGARG=$_cfgarg"
+   echo "CFGPATH=$_cfgpath"
+   if [[ -z "$_cfgpath" ]] || [[ "$_cfgpath" == "." ]]; then
+       _cfgpath=${MKISO_INVOKED_PATH}
+       echo "CFGPATH.0=$_cfgpath"
+   fi
+   if [[ ${_cfgpath:0:1} != "/" ]] ; then
+       _cfgpath=${MKISO_INVOKED_PATH}/${_cfgpath}
+       echo "CFGPATH.1=$_cfgpath"
+   fi
+
+   echo "CFGPATH.2=$_cfgpath"
+
    # Build path variables (these cannot currently be overriden)
    if [ $_dirops == 'dirops' ] ; then
        build_path YUM_INSTALL_PATH _aStr yum_install_path $WORKSPACE \
@@ -4411,7 +4433,7 @@ function default_mkiso_values {
        build_path ISO_STAGING_PATH _aStr iso_staging_path $WORKSPACE iso-staging prep
        build_path ISO_EFI_MOUNT_PATH _aStr iso_efi_mount_path $WORKSPACE efi-mnt create
        build_path SAMBA_MOUNT_PATH _aStr samba_mount_path $WORKSPACE samba-mnt create
-       build_path MKISO_CONFIG_PATH _aStr config-path `pwd` config
+       build_path MKISO_CONFIG_PATH _aStr config-path ${_cfgpath} config
    else
        build_path YUM_INSTALL_PATH _aStr yum_install_path $WORKSPACE \
               yum_install_root
@@ -4420,7 +4442,7 @@ function default_mkiso_values {
        build_path ISO_STAGING_PATH _aStr iso_staging_path $WORKSPACE iso-staging
        build_path ISO_EFI_MOUNT_PATH _aStr iso_efi_mount_path $WORKSPACE efi-mnt
        build_path SAMBA_MOUNT_PATH _aStr samba_mount_path $WORKSPACE samba-mnt
-       build_path MKISO_CONFIG_PATH _aStr config-path `pwd` config
+       build_path MKISO_CONFIG_PATH _aStr config-path ${_cfgpath} config
    fi
 
    # build up the default yum config path
@@ -4431,7 +4453,7 @@ function default_mkiso_values {
    build_file _aStr ks-file $MKISO_CONFIG_PATH 128T-ks.cfg
 
    # build up the iso input file path (only if provided)
-   build_file _aStr iso-in $HOME
+   build_file _aStr iso-in $MKISO_DEFAULT_PATH
 
    apply_arg_default _aStr yum_repo_src_path  /etc/yum.repos.d
    apply_arg_default _aStr yum_repo_dest_path /etc/yum.repos.d
@@ -4766,6 +4788,19 @@ ARG_DEFS['prompt-for-tools']='Prompt before installing ISO tools locally (yes/no
 ARG_DEFS['rpm-to-iso-pattern']='Regex to obtain iso name from matching package'
 
 declare -A MKISO_VALS
+
+MKISO_INVOKED_PATH=${PWD}
+MKISO_EXEC_PATH=`dirname $0`
+if [[ ${MKISO_EXEC_PATH:0:1} == "." ]] ; then
+    MKISO_EXEC_PATH=${MKISO_INVOKED_PATH}
+fi
+if [[ ${MKISO_EXEC_PATH:0:1} != "/" ]] ; then
+    MKISO_EXEC_PATH=${MKISO_INVOKED_PATH}/${MKISO_EXEC_PATH}
+fi
+MKISO_DEFAULT_PATH=${MKISO_INVOKED_PATH}
+echo "INVOKED FROM: ${MKISO_INVOKED_PATH}"
+echo "EXEC PATH:    ${MKISO_EXEC_PATH}"
+echo "DFLT PATH:    ${MKISO_DEFAULT_PATH}"
 
 check_bash_version '4.2'
 exit_on_fail "check_bash_version" $?
