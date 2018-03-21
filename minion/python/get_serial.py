@@ -5,6 +5,7 @@ import lshw
 gBadExprs=[]
 gBadExprs.append('0')
 gBadExprs.append('to be filled by O.E.M.')
+gBadExprs.append('default string')
 
 # Retrieve serial number.  Convert to Lower Case
 serno=lshw.get_serial_number().lower()
