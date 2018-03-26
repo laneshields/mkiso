@@ -1,0 +1,3 @@
+[submodule "webapp-minion/webapp"]
+	path = webapp-minion/webapp
+	url = https://lshields@bitbucket.128technology.com/scm/~lshields/ztp-webapp.git
