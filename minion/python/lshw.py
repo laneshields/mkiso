@@ -87,7 +87,6 @@ def run_on_sorted_intfs(sfunc, func):
         handles.sort()
         for handle in handles:
             if handle is not None:
-                print "lshields - handle %s" % handle
                 xpathstr=".//*[@handle='" + handle + "']"
                 try:
                     for node in lshw_root.findall(xpathstr):
