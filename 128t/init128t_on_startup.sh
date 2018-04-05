@@ -28,6 +28,16 @@ fi
 # This directory may benefit from being an mkiso.sh template variable,
 # similar to ISO_OVERRIDE_TTY...
 OVERRIDE_SOURCE_DIR="/usr/lib/systemd/system/${GETTY_TYPE}@tty${OVERRIDE_TTY}.service.d"
+
+# Initializing the 2nd node in an HA paire requires that the 'HA/Management/Control'
+# Interface be configured and active before initializing 128T...
+dialog --no-collapse --cr-wrap --colors --title "128T Installer" --yesno \\
+           "\\n      \\Zb\\Z0Configure Linux Networking\\n\\n      Before 128T SetUp?\\Z0\\ZB" 9 40
+config_nw=$?
+if [ $config_nw -eq 0 ] ; then
+    nmtui
+fi
+
 if [ -d ${LOCAL_REPO_DIR} ] ; then
     # yum-config-manager --save --setopt=\*.skip_if_unavailable=True &> /dev/null
     /usr/bin/install128t -a
@@ -39,6 +49,20 @@ status=$?
 # Run the table creator when kickstart/anaconda do the 128T install
 # as the Cassandra JVM cannot be started during the post-install scripts
 if [ ! -d ${LOCAL_REPO_DIR} -a $status -eq 0 ] ; then
+    # First add a non-loopback /etc/128technology/global.init IP for this
+    # node to /etc/hosts (remove this clause if/when t128Tablecreator
+    # performs this task).
+    global_ip=`{{ISO_POST_INSTALL_PYTHON_DIR}}/global-ip.py`
+    if [[ ! -z "$global_ip" ]] && \
+       [[ ${#global_ip} -gt 0 ]] && \
+       [[ "$global_ip" != "127.0.0.1" ]] ; then
+         hn=`hostname`
+         if [[ ! -z "$hn"  ]] && \
+	    [[ ${#hn} -gt 0 ]] ; then
+	    printf "%s    %s\\n" "${global_ip}" "${hn}" >> /etc/hosts
+         fi
+    fi
+ 
     /usr/bin/t128TableCreator -v 2>&1 | \\
 	dialog --cr-wrap --colors --title "128T Statistics Table Creator" \\
         --programbox 16 40

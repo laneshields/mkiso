@@ -3,4 +3,6 @@
    <short>zookeeper</short>
    <description>128 Technology Zookeeper Server</description>
    <port protocol="tcp" port="930"/>
+   <port protocol="tcp" port="2222"/>
+   <port protocol="tcp" port="2223"/>
  </service>
