@@ -53,10 +53,10 @@ if [ ! -d ${LOCAL_REPO_DIR} -a $status -eq 0 ] ; then
     # node to /etc/hosts (remove this clause if/when t128Tablecreator
     # performs this task).
     global_ip=`{{ISO_POST_INSTALL_PYTHON_DIR}}/global-ip.py`
+    hn=`hostname`
     if [[ ! -z "$global_ip" ]] && \
        [[ ${#global_ip} -gt 0 ]] && \
-       [[ "$global_ip" != "127.0.0.1" ]] ; then
-         hn=`hostname`
+       [[ "${hn}" != "localhost" ]] ; then
          if [[ ! -z "$hn"  ]] && \
 	    [[ ${#hn} -gt 0 ]] ; then
 	    printf "%s    %s\\n" "${global_ip}" "${hn}" >> /etc/hosts
