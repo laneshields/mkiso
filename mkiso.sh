@@ -3910,15 +3910,12 @@ function process_rpm_to_iso_args {
 
     # before mandatory args are checked, try samba...
     local _sVals=''
-    if [ -z "${_vals[iso-in]}" ] &&
-       [ ! -z "${_vals[samba_resource]}" ] ; then
-        query_samba_iso _vals _sVals
-        if [ $? -ne 0 ] ; then
-            printf "%s: ISO mount failed!!!\n" $_func
-            return 1
-        fi
-        eval "declare -A _vals="$_sVals
+    process_iso_url _vals _sVals
+    if [ $? -ne 0 ] ; then
+        printf "%s: process_iso_url FAILED!!!\n" $_func
+        return $STATUS_FAIL
     fi
+    eval "declare -A _vals="$_sVals
 
     # wait we aren't done yet... we need to check for mandatory args
     _defs[iso-in]='optional,single,nolist'
