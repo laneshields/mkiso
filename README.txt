@@ -467,6 +467,107 @@ Another Example:
 2) all ipmi-tools*.rpm files are removed from the yum rpm download area
 3) salt-minion package is mock-stalled
 
+*** New for Manifests (List of pinned package dependencies) ***
+--pkgfile=<path>
+Specify a path to read a list of RPMs from.  This effectively adds the RPM list to 
+the --pkglist parameter.  --pkgfile overides the transform parameters specified below: 
+
+WARNING: -- currently using --pkgfile adds all packages obtained from the 
+file's package list to --pkglist in such a way that all files will be added
+to the kickstart %package section.  This may or may not be desirable.  Testing with
+the 128T rpm and package list has shown this to be problematic. The transform
+method of obtaining additional package list content does not add additional
+packages to the kickstart %packages section.  
+
+Packge transform method
+.......................
+Transforms an existing package into a package name which contains the list
+of additional ('pinned') rpms to install. 
+
+The overall processs is something like:
+o match an exisitng RPM
+o transform it to the packe list name
+o peform yum install
+o save --pkglist
+o extract the install file content add to --pkglist
+o purge and yum cache
+o perform package downloads
+o use saved --pkglist to generate kickstart %packages section
+
+The three parameters below are used in conjunction to transform one package name into
+another. 
+
+--pkg-rpm-regex="<matching-regex>"[ "<matching-regex>" .. ]
+
+--pkg-rpm-xform="<transform>"[ "<transform>" .. ]
+
+--pkg-rpm-skips="<matching-regex>"[ "<matching-regex>" .. ]
+
+Also used is --pkg-rpm-path (see below)
+
+The number of --pkg-rpm-regex parameters must match the number of --pkg-rpm-xform 
+parameters.  --pkg-rpm-regex matches an rpm specified in the package list while
+pkg-rpm-xform indicates how that package name can be transformed int to the
+name of the package containing the rpm list.  --pkg-rpm-skips is used to gnore
+packages which might otherwise match --pkg-rpm-regex.  --pkg-rpm-regex instances are
+processed in sequence until a match is found. It may be helpful to think of 
+--pkg-rpm-regex and --pkg-rpm-xform instances as pairs.
+
+Note that is --pkg-rpm-file will be preferred over these parameters if it too is
+specified. Double quotes are required around the expressions, which is an exception
+to the normal mkiso parameter formatting rules.
+
+The following parameters are used to transform 128T into 128T-manifest:
+
+--pkg-rpm-regex="(.*?)128T(-[0-9]+\\.[0-9]+\\.[0-9]+)\\-(.*?)\\.x86_64"
+--pkg-rpm-xform="{{1?}}128T-manifest{{2}}.{{3}}"
+--pkg-rpm-regex="(.*?)128T(-)?"
+--pkg-rpm-xform="{{1?}}128T-manifest{{2}}"
+--pkg-rpm-skips="128T-i" 
+--pkg-rpm-path=usr/lib/128T-manifest/manifest.txt
+
+Consider 128T-3.2.5-2.el7.centos.x86_64:
+pkg-rpm-regex="(.*?)128T(-[0-9]+\\.[0-9]+\\.[0-9]+)\\-(.*?)\\.x86_64":
+Full match  of package name with:
+matches[1]=
+matches[2]=-3.5.2
+matches[3]=2.el7.centos
+
+pkg-rpm-xform="{{1?}}128T-manifest{{2}}.{{3}}":
+{{1?}} -> replace with matches[1] if non-empty otherwise replace with the empty string
+{{2}} -> replace wih matches[2]
+{{3}} -> replace wih matches[3]
+
+NOTE: The form {{n?}} is required to match both 128T... and /some/path/128T...
+
+resulting in 128T-manifest-3.2.5.2.el7.centos
+
+The second 'pair' is used to match/transform a shorter form of the package name -- 
+and only if the first match fails:
+
+Consider if only 128T was specified in the package list:
+pkg-rpm-regex="(.*?)128T(-)?"
+Full match  of package name with:
+matches[1]=
+matches[2]=
+
+Applying the transform results in:
+pkg-rpm-xform="{{1?}}128T-manifest{{2?}}"
+128T-manifest
+
+Since both matches are empty and its OK to replace the
+both match specifiers in the transform with an empty
+string.
+
+--pkg-rpm-skips="128T-i" skips 128T-installer which would otherwise match the shorter
+form of specifiying 128T.  Theoretically you could use -pkg-rpm-regex=(/*?)128T(-[^i])?(.*)>?
+but testing showed that [^i] did not match as expected hence the reason for this parameter
+
+--pkg-rpm-path=<path>
+This is the full path to the file installed from the package derived from
+--pkg-rpm-regex,--pkg-rpm-xform,--pkg-rpm-skips. This path cannot be derived
+and must be expicitly specified.  This path is mandatory otherwise all of the work
+to transform and install the package list is for naught.
 
 KickStart File Processing
 =========================
@@ -491,6 +592,15 @@ will be added to the pathname.
 If -ks-file is provided but does not start with '/', then the --config-path parameter
 will be prepended.
 
+
+WARNING: 
+Using --pkgfile adds all packages obtained from the file's package list to --pkglist 
+in such a way that all files will be added to the kickstart %package section.  This may or 
+may not be desirable.  Testing with the 128T rpm and package list has shown this to be 
+problematic. The transform method (--pkg-rpm-regex,--pkg-rpm-xform,--pkg-rpm-skips) of 
+obtaining additional package list content does not add additional packages to the kickstart 
+%packages section.  
+
 Miscellaneous File processing
 =============================
 Miscellaneous files can be copied from the configuration area to anywhere in the
@@ -507,6 +617,21 @@ o If a dest filename is not specified, the filename (not the full path) specifie
   in the source will be used
 o If the source path does not start with '/' the configuration path defined by the
   --config-path parameter will be applied.
+
+*** New for multiple copy source paths ***
+
+--copy-source=<src-directory>
+
+If the source file cannot befound in the config path, additional paths can be specified
+to allow common sollections of snippets and scripts.  The following rules apply:
+
+1) copy-source paths are used only if the source file cannot be found in the config/profile
+   directory
+2) if a source file of the same name exists in the config profile directory AND a
+   copy-source path, the config profile source is always used.
+3) if a source file exists on more thn one --copy-source, this is considered an ERROR
+   and ISO creation will be stopped. 
+  
 
 Templated File Processing
 =========================
