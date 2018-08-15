@@ -304,7 +304,7 @@ including pkglist, and the iso-staging path (usually defaulted).
 |
 | Details.....
 | ------------
-| Read further if you are interested in overiding parameters or creating your
+| Read further if you are interested in overriding parameters or creating your
 | own configuration files
 +-------------------------------------------------------------------------------
 
@@ -330,7 +330,7 @@ customize the tool's behavior.  Thus it is strongly suggested a configuration fi
 (by default named mkiso.cfg) be used.
 
 The default path for the configuration file is the current working directory from where
-the script is invoked, but this can be overidden (from the command line only) using the
+the script is invoked, but this can be overridden (from the command line only) using the
 mkiso-cfg parameter. e.g. mkiso --mkiso-cfg=$HOME/isofun/myiso.cfg
 
 Arguments may be:
@@ -376,7 +376,7 @@ Specifiying Package Lists:
 ==========================
 Packet lists are used for 2 purposes:
 1) To tell yum what packages to download
-2) To populate the kickstart file with rpms to install (unless specifcally overidden by
+2) To populate the kickstart file with rpms to install (unless specifcally overridden by
    a prefix... see prefixes, below)
 
 Package list Formatting:
@@ -470,7 +470,7 @@ Another Example:
 *** New for Manifests (List of pinned package dependencies) ***
 --pkgfile=<path>
 Specify a path to read a list of RPMs from.  This effectively adds the RPM list to 
-the --pkglist parameter.  --pkgfile overides the transform parameters specified below: 
+the --pkglist parameter.  --pkgfile overrides the transform parameters specified below: 
 
 WARNING: -- currently using --pkgfile adds all packages obtained from the 
 file's package list to --pkglist in such a way that all files will be added
@@ -485,7 +485,7 @@ Transforms an existing package into a package name which contains the list
 of additional ('pinned') rpms to install. 
 
 The overall processs is something like:
-o match an exisitng RPM
+o match an existing RPM
 o transform it to the packe list name
 o peform yum install
 o save --pkglist
@@ -508,7 +508,7 @@ Also used is --pkg-rpm-path (see below)
 The number of --pkg-rpm-regex parameters must match the number of --pkg-rpm-xform 
 parameters.  --pkg-rpm-regex matches an rpm specified in the package list while
 pkg-rpm-xform indicates how that package name can be transformed int to the
-name of the package containing the rpm list.  --pkg-rpm-skips is used to gnore
+name of the package containing the rpm list.  --pkg-rpm-skips is used to ignore
 packages which might otherwise match --pkg-rpm-regex.  --pkg-rpm-regex instances are
 processed in sequence until a match is found. It may be helpful to think of 
 --pkg-rpm-regex and --pkg-rpm-xform instances as pairs.
@@ -535,8 +535,8 @@ matches[3]=2.el7.centos
 
 pkg-rpm-xform="{{1?}}128T-manifest{{2}}.{{3}}":
 {{1?}} -> replace with matches[1] if non-empty otherwise replace with the empty string
-{{2}} -> replace wih matches[2]
-{{3}} -> replace wih matches[3]
+{{2}} -> replace with matches[2]
+{{3}} -> replace with matches[3]
 
 NOTE: The form {{n?}} is required to match both 128T... and /some/path/128T...
 

@@ -4441,11 +4441,15 @@ function build_path {
 #    - ${_args[pkglist]}
 #    - ${_args[pkglast]}
 #
-# By applying pkg-rpm-regex to pkglst to extract parts to preserve
-# and then apply to the transform string in pkg-rpm-xform
+# $1: Name of global parameters associative array.
+#
+# Match pkg-rpm-regex against pkglist, pkglast parameters to extract 
+# package name sub-strings transformed into a package list rpm
+# name using string in pkg-rpm-xform
 #
 # To replace regx ${BASH_REMATCH[N]} collected from the regex match
-# Use {{N}} in the transform string.
+# Use {{N}} in the transform string(pkg-rpm-xform) where N is the 
+# matching substring number. {{N?}} Allows replacement by an empty match.
 #
 # Returns 0 if successful, 1 otherwise.
 #
@@ -4917,7 +4921,7 @@ function default_mkiso_values {
    # build up a rpm filename (only if provided)
    build_file _aStr rpm-file $MKISO_CONFIG_PATH
 
-   # build up a packge-list filename (only if provided)
+   # build up package list filename (only if provided)
    build_file _aStr pkgfile $MKISO_CONFIG_PATH
 
    # build up an ISO output filename
