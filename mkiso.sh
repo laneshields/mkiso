@@ -4586,116 +4586,6 @@ function build_pkg_list_rpm_name() {
 }
 
 #
-#
-# DEPRECATED DEPRECATED DEPRECATED
-#
-# pkgfile_from_pkglast_regex:
-#
-# Generates args[pkg_list_rpm] from:
-#    - ${_args[pkg-rpm-regex]}
-#    - ${_args[pkg-rpm-xform]}
-#    - ${_args[pkglast]}
-#
-# By applying pkg-rpm-regex to pkglst to extract parts to preserve
-# and then apply to the transform string in pkg-rpm-xform
-#
-# To replace regx ${BASH_REMATCH[N]} collected from the regex match
-# Use {{N}} in the transform string.
-#
-# Returns 0 if successful, 1 otherwise.
-#
-function pkgfile_from_pkglast_regex {
-    local _func=${FUNCNAME}
-    local _argStr=$1
-    local _args
-
-    if [ -z "$_argStr" ] || [ -z "${!_argStr}" ] ; then
-        printf "%s: Invalid arguments\n" $_func
-        return 1
-    fi
-
-    # de-serialize
-    _str="declare -A _dummy=${!_argStr}"
-    eval "declare -A _args="${_str#*=}
-
-    # holds matches from regex
-    declare -A segments
-    
-    regex=${_args[pkg-rpm-regex]}
-    xform=${_args[pkg-rpm-xform]}
-
-    last_rpms=(${_args[pkglast]})
-    last_rpm=${last_rpms[0]}
-
-    length=${#regex}
-    if [ ${#regex} -ge 2 ] ; then
-	last=$((length-1))
-	if [ ${regex:0:1} != '"' ] ||
-	    [ ${regex:$last} != '"' ] ; then
-	    printf "%s: Malformatted args[pkg-rpm-regex] -- 1st and last chars must be \"s, bailing\n" ${_func}
-	    return 1
-	fi
-	regex=${regex:1:-1}
-    fi
-
-    length=${#xform}
-    if [ ${length} -ge 2 ] ; then
-	last=$((length-1))
-	if [ ${xform:0:1} != '"' ] ||
-	    [ ${xform:$last} != '"' ] ; then
-	    printf "%s: Malformatted args[pkg-rpm-regex] -- 1st and last chars must be \"s, bailing\n" ${_func}
-	    return 1
-	fi
-	xform=${xform:1:-1}
-    fi
-
-    if [ -z "$regex" ] || [ "$regex" == "" ] ; then
-	printf "%s: Missing or empty args[pkg-rpm-regex], bailing\n" ${_func}
-	return 1
-    fi
-    if [ -z "$xform" ] || [ "$xform" == "" ] ; then
-	printf "%s: Missing or empty args[pkg-rpm-xform], bailing\n" ${_func}
-	return 1
-    fi
-    if [ -z "$last_rpm" ] || [ "$last_rpm" == "" ] ; then
-	printf "%s: Missing or empty args[pkglast], bailing\n" ${_func}
-	return 1
-    fi
-
-    printf "${_func}: LAST_RPM=$last_rpm\n"
-    printf "${_func}: REGEX=$regex\n"
-    printf "${_func}: XFORM=$xform\n"
-    if [[ $last_rpm =~ $regex ]] ; then
-	index=0
-	while [ $index -lt 10 ] ; do
-            if [ ! -z "${BASH_REMATCH[$index]}" ] ; then
-		segments[$index]=${BASH_REMATCH[$index]}
-		printf "${_func}: EXTRACTED[$index]=${segments[$index]}\n"
-            fi
-            index=$((index+1))
-	done
-    else
-	printf "${_func}: REGEX did not match ${last_rpm} !!!!\n"
-	return 1
-    fi
-
-    outstr=$xform
-    for key in ${!segments[@]} ; do
-	replacement=${segments[$key]}
-	outstr=${outstr//\{\{$key\}\}/$replacement}
-    done
-
-    _args[pkg_list_rpm]=$outstr
-    printf "${_func}: XFORM=${_args[pkg_list_rpm]}\n"
-    
-    # serialize current array and apply to original string
-    _var=$(declare -p _args)
-    eval "$_argStr="${_var#*=}
-
-    return 0
-}
-
-#
 # load_pkg_list_from_file:
 # 
 # $1: Serialized parameter/argument array.
@@ -4952,7 +4842,6 @@ function default_mkiso_values {
 
    # Apply regex transforms to args[pkglast][0] to come up with an rpm
    # name to download to extract an rpm list from...
-   #pkgfile_from_pkglast_regex _aStr
    if [ -z "${_argVals[pkgfile]}" ] && \
        [ ! -z "${_argVals[pkg-rpm-path]}" ] ; then
        build_pkg_list_rpm_name _aStr
