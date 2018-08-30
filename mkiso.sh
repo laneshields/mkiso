@@ -37,6 +37,8 @@ DEBUG_FLAG=1
 STATUS_OK=0
 STATUS_FAIL=1
 
+PKGBIN=/usr/bin/yum
+
 #
 # Prefix to yum repository entries in a generated
 # yum.conf (used to present a different set of repos to yum
@@ -1667,7 +1669,8 @@ function copy_repo_config {
     printf "%s: yum_conf_tgt_dir=  %s\n" $_func "${_yum_conf_tgt_dir}"
 
     if [ -e $_yum_repo_tgt_path ] ; then
-        show_error "%s: _yum_repo_tgt_path=%s EXISTS!!!\n" $_func "${_yum_repo_tgt_path}"
+	printf "%s: _yum_repo_tgt_path=%s EXISTS!!!\n" $_func "${_yum_repo_tgt_path}"
+        # show_error "%s: _yum_repo_tgt_path=%s EXISTS!!!\n" $_func "${_yum_repo_tgt_path}"
         return 1
     fi
 
@@ -1926,11 +1929,12 @@ function pre_process_rpm_list() {
   return 0
 }
 
-#
+
 # yum_download:
 #
 # $1 - IN: Name of parameters assoc. array
 # $2 - IN: install or no-install (if not provided defaults to no-install)
+# $3 - IN: list of args to get packages from
 #
 # Warning: yum --installroot, behaves in odd ways.  Even using --config,
 #          populating the installroot with repo and keys, it seems that
@@ -1948,9 +1952,11 @@ function pre_process_rpm_list() {
 #          as long as they work.
 #
 function yum_download {
-  local _func=${FUNCNAME}
+  local _func=${FUNCNAME^^}
   local _argsName=$1
   local _doInstall=$2
+  local _doCopyConfig=$3
+  local _pkgArgs=$4
   local _astr=''
   local _args
 
@@ -1964,9 +1970,15 @@ function yum_download {
 
   output_n_chars '-' 79
 
+  if [ -z "$_pkgArgs" ] ; then
+      _pkgArgs="pkglist pkglast"
+      printf "%s: Defaulting pkgArgs to: %s\n" ${_func} "${_pkgArgs}"
+  fi
+  _pkgArgs=(${_pkgArgs})
+
   local _instRootPath=${_args[yum_install_path]}
   local _rpmDloadPath=${_args[yum_rpm_path]}
-  local _instList=${_args[pkglist]}
+ # local _instList=${_args[pkglist]}
   local _instVer=${_args[os-version]}
   local _deferInst=${_args[pkglast]}
   local _delExtra=${_args[pkgdel]}
@@ -2001,10 +2013,23 @@ function yum_download {
       printf "%s: ERROR RPM Download Path %s not found!\n" $_func $_rpmDloadPath
       return 1
   fi
-  if [ -z "$_instList" ] ; then
-      printf "%s: ERROR Empty RPM/GROUP List!\n" $_func
+
+  _popCount=0
+  for _argName in ${_pkgArgs[@]} ; do
+      if [ ! -z "${_args[$_argName]}" ] && \
+	  [ "${_args[$_argName]}" != ""  ] ; then
+	  _popCount=$((_popCount+1))
+      fi
+  done
+  if [ ${_popCount} -eq  0 ] ; then
+      printf "%s: ERROR Empty RPM/GROUP List! pkgArgs: %s\n" ${_func} ${_pkgArgs[@]}
       return 1
-  fi
+  fi 
+
+#  if [ -z "$_instList" ] ; then
+#      printf "%s: ERROR Empty RPM/GROUP List!\n" $_func
+#      return 1
+#  fi
 
   if [ -z "$_doInstall" -o "$_doInstall" == "" ] ; then
        _doInstall="no-install"
@@ -2014,14 +2039,27 @@ function yum_download {
       return 1
   fi
 
-  printf "%s(%s, %s, '%s', %s, %s)\n" $_func $_instRootPath $_rpmDloadPath \
-      "$_instList $_deferInst" $_instVer $_doInstall
+  if [ -z "$_doCopyConfig" -o "$_doCopyConfig" == "" ] ; then
+       _doCopyConfig="copy-config"
+  fi
+  if [ "$_doCopyConfig" != "copy-config" -a "$_doCopyConfig" != "no-copy-config" ] ; then
+      printf "%s: ERROR Invalid copy-config directive - $_doCopyConfig!\n" $_func
+      return 1
+  fi
+
+  #printf "%s(%s, %s, '%s', %s, %s)\n" $_func $_instRootPath $_rpmDloadPath \
+  #    "$_instList $_deferInst" $_instVer $_doInstall
+
+  printf "%s(%s, %s, '%s', %s, %s, %s)\n" $_func $_instRootPath $_rpmDloadPath \
+      "${_pkgArgs[@]}" $_instVer $_doInstall $doCopyConfig
 
   # initialize install root to use repo config
-  copy_repo_config _args
-  if [ $? -ne 0 ] ; then
-      printf "%s: copy_repo_config FAILED!\n" $_func
-      return 1
+  if [ "$_doCopyConfig" != "no-copy-config" ] ; then
+      copy_repo_config _args
+      if [ $? -ne 0 ] ; then
+	  printf "%s: copy_repo_config FAILED!\n" $_func
+	  return 1
+      fi
   fi
 
   local _rpmArgs=''
@@ -2030,7 +2068,7 @@ function yum_download {
 
   # without setting release version all sorts of things break
   if [ -z "$_instVer" ] ; then
-       show_error "%s: OS Release Version is Mandatory!\n"
+       show_error "%s: OS Release Version is Mandatory!\n" ${_func}
        return 1
   fi
 
@@ -2077,18 +2115,27 @@ function yum_download {
   _cmdArgs=("--installroot=$_instRootPath" "--downloaddir=$_rpmDloadPath" "$_xtraArgs")
 
   local _listCount=1
-  local _pkgLists="_instList _deferInst"
+  #local _pkgLists="_instList _deferInst"
   local _iso_match=''
   local _iso_path=''
-  for _pkgList in ${_pkgLists} ; do
-      pre_process_rpm_list $_pkgList _rpmList _grpList _copyList
+  for _pkgArg in ${_pkgArgs[@]} ; do
+      _pkgList=${_args[${_pkgArg}]}
+      echo "${_pkgArg}->PKGLIST=${_pkgList}"
+      pre_process_rpm_list _pkgList _rpmList _grpList _copyList
       if [ $? -ne 0 ] ; then
           printf "%s: pre_process_rpm_list(%s...) FAILED!\n" $_func $_pkglist
           return 1
       fi
       if [ -z "$_grpList" -o "$_grpList" == "" ] &&
          [ -z "$_rpmList" -o "$_rpmList" == "" ] ; then
-          if [ "$_pkgList" == "_instList" ] ; then
+          #if [ "$_pkgList" == "_instList" ] ; then
+          #    printf "%s: No RPMs / GROUPs for mandatory pkglist parameter!!!\n" $_func
+          #    return 1
+          #else
+          #    printf "%s: No RPMs / GROUPs for package list; skipping...\n" $_func
+          #    continue
+          #fi
+          if [ "${_pkgArg}" == "pkglist" ] ; then
               printf "%s: No RPMs / GROUPs for mandatory pkglist parameter!!!\n" $_func
               return 1
           else
@@ -2370,6 +2417,8 @@ function rpm_download {
 # seed the ISO.
 #
 # $1 -  IN:  Argument Associative Array
+# $2 -  IN:  Parameter Name to use for package list
+#            defaults to 'pkglist' if not provided 
 #
 # WARNING: Groups RPMs prefaced with "'" will be added exactly as
 #          such to the kickstart file
@@ -2387,11 +2436,19 @@ function populate_kickstart {
   local _var
   local _argVals
   local _argValsName=$1
+  local _paramName=$2
 
   if [ -z "$_argValsName" ] ; then
       printf "%s: Argument aray not provided\n" $_func
       return 1
   fi
+
+  if [ -z "${_paramName}" ] || \
+     [ "${_paramName}" == "" ] ; then
+      _paramName='pkglist'
+  fi
+
+  printf "%s: Using '%s' as Parameter Name\n" ${_func} ${_paramName}
 
   _var=$(declare -p $_argValsName)
   eval "readonly -A _argVals="${_var#*=}
@@ -2421,7 +2478,7 @@ function populate_kickstart {
       fi
   fi
 
-  _instList=${_argVals['pkglist']}
+  _instList=${_argVals[$_paramName]}
   if [ -z "$_instList" ] ; then
       printf "%s: ERROR install list!\n" $_func
       return 1
@@ -2639,9 +2696,42 @@ function copy_files {
         fi
         # Source file must exist!
         if [ ! -e $_srcpath ] ; then
-            show_error "%s: source file %s does not exist\n" $_func $_srcpath
-            printf "%s: source file %s does not exist\n" $_func $_srcpath
-            return 1
+            printf "%s: source file %s does not exist; check copy-sources\n" $_func $_srcpath
+	    # Check the copy-source parameters for alternate locations 
+	    _findcount=0
+	    _multi_list=""
+	    _pathlist=(${_argVals['copy-source']})
+	    for _path in ${_pathlist[@]} ; do
+		_srcpath=${MKISO_INVOKED_PATH}
+		if [ ${_src:0:1} != '/' ] ; then
+		    _srcpath=${_srcpath}"/"
+                fi
+		_srcpath=${_srcpath}${_path}
+		if [ ${_src:0:1} != '/' ] ; then
+		    _srcpath=${_srcpath}"/"
+                fi
+		_srcpath=${_srcpath}${_src}
+		printf "%s: checking source %s...\n" ${_func} ${_srcpath}
+		if [ -e ${_srcpath} ] ; then
+		    _findcount=$((_findcount+1))
+		    printf "%s: found source %d %s...\n" ${_func} ${_findcount} ${_srcpath}
+		    if [ "${_multi_list}" == "" ] ; then
+			_multi_list=${_srcpath}
+		    else
+			_multi_list="${_multi_list}, ${_srcpath}"
+		    fi
+		fi
+            done
+	    if [ ${_findcount} -eq 0 ] ; then
+		show_error "%s: copy source file '%s' not found\n" $_func $_src
+		printf "%s: copy source file '%s' not found\n" $_func $_src
+		return 1
+	    fi
+	    if [ ${_findcount} -gt 1 ] ; then
+		show_error "%s: multiple source files '%s' \n" $_func "${_multi_list}"
+		printf "%s: multiple source files '%s' \n" $_func "${_multi_list}"
+		return 1
+	    fi
         fi
         # Source file must exist!
         if [ -d $_srcpath ] ; then
@@ -2657,11 +2747,16 @@ function copy_files {
                 _is_dir_dest=0
             fi
         fi
+        if [ "${_dst}" == '.' ] ; then
+            _dst=''      
+        fi
         printf "_dst=%s\n" $_dst
         # if dest path not absolute, prepend default absolute path
         _dstpath=$_dst
         printf "dst_path1=%s\n" $_dstpath
-        if [ ${_dst:0:1} != '/' ] ; then
+        if [ "${_dst}" == "" ] ; then
+            _dstpath=$ISO_STAGING_PATH
+	elif [ ${_dst:0:1} != '/' ] ; then
             _dstpath=$ISO_STAGING_PATH'/'$_dst
         fi
         printf "dst_path2=%s\n" $_dstpath
@@ -3728,6 +3823,20 @@ function process_create_args {
     _defs['yum_extra_args']='optional,multi,list'
     _defs['rpm-to-iso-pattern']='optional,single,nolist'
 
+    _defs['pkgfile']='optional,single,nolist'
+    _defs['pkg-rpm-regex']='optional,multi,list'
+    _defs['pkg-rpm-xform']='optional,multi,list'
+    _defs['pkg-rpm-skips']='optional,multi,list'
+    _defs['pkg-rpm-path']='optional,single,nolist'
+    _defs['copy-source']='optional,multi,list'
+
+    _help['pkgfile']='file containing rpm list to add to pkglist'
+    _help['pkg-rpm-regex']='regex to apply to pkglast'
+    _help['pkg-rpm-xform']='transform to apply to pkglast'
+    _help['pkg-rpm-skips']='rpm matches to skip'
+    _help['pkg-rpm-path']='path of pkglist file after pkglist rpm is installed'
+    _defs['copy-source']='add search paths relative to invocation path'
+
     # grab the command line arguments...
     process_args 'cmdline' _defs $_aStrName $@
     if [ $? -ne 0 ] ; then
@@ -3854,7 +3963,6 @@ function process_rpm_to_iso_args {
 
     # Mandatory => must be specified or defaulted by the time
     # processing starts
-    _defs[rpm-file]='mandatory,single,nolist'
     _defs[pkglist]='optional,multi,list'
     _defs[pkgdel]='optional,multi,list'
     _defs[pkglast]='optional,multi,list'
@@ -3865,6 +3973,7 @@ function process_rpm_to_iso_args {
     _defs[yum_extra_args]='optional,multi,list'
     _defs[rpm-to-iso-pattern]='optional,single,nolist'
 
+    _defs[rpm-file]='mandatory,single,nolist'
     _help[rpm-file]='filename with rpm list from rpm -qa'
 
     # grab the command line arguments...
@@ -4323,6 +4432,240 @@ function build_path {
 }
 
 #
+# build_pkg_list_rpm_name:
+#
+# Generates args[pkg_list_rpm] from:
+#    - ${_args[pkg-rpm-regex]}
+#    - ${_args[pkg-rpm-xform]}
+#    - ${_args[pkg-rpm-skips]}
+#    - ${_args[pkglist]}
+#    - ${_args[pkglast]}
+#
+# $1: Name of global parameters associative array.
+#
+# Match pkg-rpm-regex against pkglist, pkglast parameters to extract 
+# package name sub-strings transformed into a package list rpm
+# name using string in pkg-rpm-xform
+#
+# To replace regx ${BASH_REMATCH[N]} collected from the regex match
+# Use {{N}} in the transform string(pkg-rpm-xform) where N is the 
+# matching substring number. {{N?}} Allows replacement by an empty match.
+#
+# Returns 0 if successful, 1 otherwise.
+#
+function build_pkg_list_rpm_name() { 
+    local _func=${FUNCNAME}
+    local _argStr=$1
+    local _args
+
+    if [ -z "$_argStr" ] || [ -z "${!_argStr}" ] ; then
+        printf "%s: Invalid arguments\n" $_func
+        return 1
+    fi
+
+    # de-serialize                                                                                                                                                                                                                                                                                                      
+    _str="declare -A _dummy=${!_argStr}"
+    eval "declare -A _args="${_str#*=}
+    
+    # converts any versions of 128T into directory paths
+    _pkgList=${_args[pkglist]}
+    _pkgLast=${_args[pkglast]}
+    _pkgs=(_pkgList _pkgLast)
+    patterns=(${_args[pkg-rpm-regex]})
+    xforms=(${_args[pkg-rpm-xform]})
+    skips=(${_args[pkg-rpm-skips]})
+    exlist="patterns xforms skips"
+    outstr=''
+    declare -A matches
+
+    for name in $exlist[@] ; do 
+	exprs=${!name}
+	for expr in ${exprs[@]} ; do
+	    length=${#expr}
+	    if [ $length -ge 2 ] ; then
+		last=$((length-1))
+		if [ ${expr:0:1} != '"' ] ||
+		    [ ${expr:$last} != '"' ] ; then
+		    printf "%s: Malformatted %s entry in %s -- 1st and last chars must be \"s, bailing\n" ${name} ${_func} ${pattern}
+		    return 1
+		fi
+            else
+		printf "%s: Malformatted %s entry in %s -- 1st and last chars must be \"s, bailing\n" ${name} ${_func} ${pattern}
+		return 1
+	    fi
+	done
+    done
+
+    printf "%s: PATTERNS: %s\n\n" ${_func} "${pattern[@]}"
+    printf "%s:   XFORMS: $%s\n\n" ${_func} "${xforms[@]}"
+    printf "%s:    SKIPS: $%s\n\n" ${_func} "${skips[@]}"
+
+    for list in ${_pkgs[@]} ; do
+	_rpmList=''
+	_grpList=''
+	_copyList=''
+	pre_process_rpm_list ${list} _rpmList _grpList _copyList    
+	if [ $? -ne 0 ] ; then
+	    printf "%s: Unable to pre_process_rpm_list %s\n" ${_func} ${list}
+	    return 1
+	fi
+	for rpm in ${_rpmList[@]} ; do
+	    patndx=0
+	    skipit=1
+	    while [ $patndx -lt ${#skips[@]} ] ; do
+		pattern=${skips[$patndx]}
+		pattern=${pattern:1:-1}
+		if [[ $rpm =~ $pattern ]] ; then
+		    printf "${_func}: pattern ${pattern} skips rpm ${rpm}\n"
+		    skipit=0
+		    break
+		fi
+		patndx=$((patndx+1))
+	    done
+	    if [ $skipit -eq 0 ] ; then
+		continue
+	    fi
+	    patndx=0
+	    outstr=''
+	    matches={}
+	    while [ $patndx -lt ${#patterns[@]} ] ; do
+		pattern=${patterns[$patndx]}
+		pattern=${pattern:1:-1}
+		# printf "${_func}: TRY ${pattern} AGAINST ${rpm}\n"
+		if [[ $rpm =~ $pattern ]] ; then
+		    printf "${_func}: pattern ${pattern} matched rpm ${rpm}\n"
+		    matchndx=0
+		    while [ $matchndx -lt 10 ] ; do
+			if [ ! -z "${BASH_REMATCH[$matchndx]}" ] ; then
+			    matches[$matchndx]=${BASH_REMATCH[$matchndx]}
+			    printf "${_func}: MATCHES[$matchndx]=${matches[$matchndx]}\n"
+			fi
+			matchndx=$((matchndx+1))
+		    done
+		    break
+		fi
+		patndx=$((patndx+1))
+	    done
+	    if [ $patndx -lt ${#patterns[@]} ] ; then
+		xform=${xforms[$patndx]}
+		xform=${xform:1:-1}
+		if [ ! -z "${xform}" ] ; then
+                   outstr=$xform
+		    for key in ${!matches[@]} ; do
+		         replacement=${matches[$key]}
+		         outstr=${outstr//\{\{$key\}\}/$replacement}
+		    done
+		    key=1
+		    # replace outstr
+                    while [ $key -le 10 ] ; do
+		        outstr=${outstr//\{\{$key?\}\}/}
+			key=$((key+1))
+                    done
+	        fi
+		break
+	    fi
+        done
+	if [[ $outstr != '' ]] ; then
+	    if [[ ! $outstr =~ .*?\{\{.*?\}\}.* ]] ; then
+	       break
+	    else
+		printf "%s: Incomplete Replacement %s !!!\n" $_func $outstr
+		exit 1
+	    fi
+	fi
+    done
+
+    _args[pkg_list_rpm]=$outstr
+    printf "${_func}: FINAL-XFORM=${_args[pkg_list_rpm]}\n"
+
+    # serialize current array and apply to original string                                                                                                                                                                                                                                                              
+    _var=$(declare -p _args)
+    eval "$_argStr="${_var#*=}
+
+    return 0
+}
+
+#
+# load_pkg_list_from_file:
+# 
+# $1: Serialized parameter/argument array.
+# $2: Full path of file to load rpm list from...
+#
+# Loads the package list from $2 (usually ${_args[pkgfile]}) into
+# _args[pkglist], also appending ${_args[pkg_list_rpm]} to the list
+# as this too should ultimately be installed...
+#        
+function load_pkg_list_from_file {
+    local _func=${FUNCNAME}
+    local _argStr=$1
+    local _filepath=$2
+    local _args
+
+    if [ -z "$_argStr" ] || [ -z "${!_argStr}" ] ; then
+        printf "%s: Invalid arguments\n" $_func
+        return 1
+    fi
+
+    if [ -z "$_filepath" ] || \
+	[ "$_filepath" == "" ] ; then
+	printf "%s: No filepath provided\n" ${_func} 
+	return 1
+    fi
+
+    if [ ! -f "$_filepath" ] ; then
+	printf "%s: %s missing\n" ${_func} ${_filepath}
+	return 1
+    fi 
+
+   _str="declare -A _dummy=${!_argStr}"
+    eval "declare -A _args="${_str#*=}
+    
+    printf "%s: Loading package list from %s\n" ${_func} "${_filepath}"
+
+    tmpPkgLst=""
+    while read line ; do
+        # remove whitespace
+        line=${line// /}
+        if [ ${line} == "" ] ; then
+            continue
+        fi
+        if [ ${line:0:1} == "#" ] ; then
+            continue
+        fi 
+	printf "...Adding %s from %s\n" $line ${_filepath}
+	if [ "${tmpPkgList}" == "" ] ; then
+	    tmpPkgList=${line}
+	else 
+	    tmpPkgList="${tmpPkgList} ${line}"
+	fi
+    done < ${_filepath}
+
+    if [ -z "${_args[pkglist]}" ] || \
+        [ "${_args[pkglist]}" == '' ] ; then
+	_args[pkglist]="${tmpPkgList}"
+    else 
+	_args[pkglist]="${_args[pkglist]} ${tmpPkgList}"
+    fi
+
+    if [ ! -z "${_args[pkg_list_ks]}" ] && \
+        [ "${_args[pkg_list_ks]}" != '' ] ; then
+	_args[pkg_list_ks]="${_args[pkg_list_ks]} ${_args[pkg_list_rpm]}"
+    fi
+
+    # If it's set, add in the derived rpm pattern
+    if [ ! -z "${_args[pkg_list_rpm]}" ] && \
+        [ "${_args[pkg_list_rpm]}" != '' ] ; then
+	_args[pkglist]="${_args[pkglist]} ${_args[pkg_list_rpm]}"
+    fi
+
+    # serialize current array and apply to original string
+    _var=$(declare -p _args)
+    eval "$_argStr="${_var#*=}
+
+    return 0
+}
+
+#
 # apply_arg_default:
 #
 #
@@ -4468,6 +4811,9 @@ function default_mkiso_values {
    # build up a rpm filename (only if provided)
    build_file _aStr rpm-file $MKISO_CONFIG_PATH
 
+   # build up package list filename (only if provided)
+   build_file _aStr pkgfile $MKISO_CONFIG_PATH
+
    # build up an ISO output filename
    build_file _aStr iso-out $WORKSPACE 128T.iso
 
@@ -4490,10 +4836,25 @@ function default_mkiso_values {
    # By default, prompt before installing tools
    apply_arg_default _aStr prompt-for-tools "on"
 
+   # Build file where the list of rpms will be installed to... 
+   # yum_install_root can't be used as no de-serialization has been done yet
+   build_file _aStr pkg-rpm-path $YUM_INSTALL_PATH
+
+   # Apply regex transforms to args[pkglast][0] to come up with an rpm
+   # name to download to extract an rpm list from...
+   if [ -z "${_argVals[pkgfile]}" ] && \
+       [ ! -z "${_argVals[pkg-rpm-path]}" ] ; then
+       build_pkg_list_rpm_name _aStr
+   fi
+
    # regenerate the array from the string...
-   #_aStr="declare -A _dummy=$_aStr"
-   # eval "declare -A _argVals"=${_aStr#*=}
    eval "declare -A _argVals"=${_aStr}
+
+   if [ ! -z "${_argVals[pkgfile]}" ] ; then
+       # no need to serialize again as nothing has changed
+       load_pkg_list_from_file _aStr "${_argVals[pkgfile]}"
+       eval "declare -A _argVals"=${_aStr}
+   fi
 
    # must be done after array reconstructed from string
    ISO_CREATE_FILE_PATH="${_argVals[iso-out]}"
@@ -4580,6 +4941,7 @@ function do_cmd_iso_test {
 function do_cmd_create {
     local _func=${FUNCNAME}
     local _mstr
+    local _copy_config
 
     printf "%s:: %s\n" $_func "$*"
 
@@ -4596,7 +4958,53 @@ function do_cmd_create {
         "${MKISO_VALS[rsync-opts]]}"
     exit_on_fail "copy_iso" $?
 
-    yum_download MKISO_VALS 'no-install'
+    # Add list of rpms from file installed by rpm to the rpm list...
+    # This uses the 'correct approach' --  a faster approach might be
+    # to perform yumdownloader on the rpm and get at the directory
+    # structure and file directly which would not require reconstructing
+    # the yum cache.
+    _copy_config='copy-config'
+    # save the original package list for use by populate_kickstart
+    MKISO_VALS[pkg_list_ks]=${MKISO_VALS[pkglist]}
+
+        printf "${TERMINAL_COLOR_GREEN}%.s=" % {1..79}
+        printf "\n" 
+	dump_assoc MKISO_VALS
+        printf "%.s=" % {1..79}
+        printf "${TERMINAL_STYLE_NORMAL}\n"
+
+    if [ -z ${MKISO_VALS[pkgfile]} ] && \
+	[ ! -z ${MKISO_VALS[pkg_list_rpm]} ] && \
+	[ ${MKISO_VALS[pkg_list_rpm]} != '' ] ; then
+	yum_download MKISO_VALS 'install' 'copy-config' 'pkg_list_rpm'
+	exit_on_fail "Yum Install" $?
+	aname_to_string MKISO_VALS _mstr
+	load_pkg_list_from_file _mstr ${MKISO_VALS[pkg-rpm-path]}
+	exit_on_fail "Load Package List from File" $?
+	eval "declare -A MKISO_VALS"=${_mstr}
+
+        printf "${TERMINAL_COLOR_BLUE}%.s=" % {1..79}
+        printf "\n" 
+	dump_assoc MKISO_VALS
+        printf "%.s=" % {1..79}
+        printf "${TERMINAL_STYLE_NORMAL}\n"
+	
+	# purge required, otherwise required rpms will not be downloaded :-(
+	purge_mkiso_dir ${YUM_INSTALL_PATH} ${_func} 'sudo'
+	exit_on_fail "Failed to Purge Install Root..." $?
+	mkdir -p ${YUM_INSTALL_PATH}
+	exit_on_fail "Failed to Create Install Root..." $?
+        touch "${YUM_INSTALL_PATH}/${MKISO_WORKSPACE_ID}"
+	exit_on_fail "Failed to Unprotect Install Root..." $?
+    else
+        printf "${TERMINAL_COLOR_BLUE}%.s=" % {1..79}
+        printf "\n" 
+	printf "PACKAGE LIST NOT LOADED FROM RPM... Continuing\n"
+        printf "%.s=" % {1..79}
+        printf "${TERMINAL_STYLE_NORMAL}\n" 
+    fi
+
+    yum_download MKISO_VALS 'no-install' ${_copy_config}
     exit_on_fail "Yum Download" $?
 
     move_rpms_to_staging $YUM_RPM_PATH $ISO_STAGING_PATH
@@ -4608,7 +5016,7 @@ function do_cmd_create {
     copy_urls MKISO_VALS
     exit_on_fail "copy_urls" $?
 
-    populate_kickstart MKISO_VALS
+    populate_kickstart MKISO_VALS 'pkg_list_ks'
     exit_on_fail "populate_kickstart" $?
 
     copy_files MKISO_VALS 'template'
