@@ -1737,12 +1737,15 @@ function copy_repo_config {
                 fi
             fi
             printf "%s: ...Copy %s -> %s\n" $_func "$_certsrc" "$_certpath"
-            #sudo cp -f "$_certsrc" "$_certpath"
-            cp -f "$_certsrc" "$_certpath"
-            if [ $? -ne 0 ] ; then
-                printf "%s: ...Copy FAILED '%s'\n" $_func "$_certsrc"
-                return 1
-            fi
+            if [ -f "$_certsrc" ] ; then
+		cp -f "$_certsrc" "$_certpath"
+		if [ $? -ne 0 ] ; then
+                    printf "%s: ...Copy FAILED '%s'\n" $_func "$_certsrc"
+                    return 1
+		fi
+            else
+		printf "%s: skipping %s -- not found\n" $_func "$_certpath"
+	    fi
         done
     done
 
