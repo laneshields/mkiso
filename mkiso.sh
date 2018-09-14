@@ -1669,7 +1669,7 @@ function copy_repo_config {
     printf "%s: yum_conf_tgt_dir=  %s\n" $_func "${_yum_conf_tgt_dir}"
 
     if [ -e $_yum_repo_tgt_path ] ; then
-	printf "%s: _yum_repo_tgt_path=%s EXISTS!!!\n" $_func "${_yum_repo_tgt_path}"
+        printf "%s: _yum_repo_tgt_path=%s EXISTS!!!\n" $_func "${_yum_repo_tgt_path}"
         # show_error "%s: _yum_repo_tgt_path=%s EXISTS!!!\n" $_func "${_yum_repo_tgt_path}"
         return 1
     fi
@@ -1737,11 +1737,14 @@ function copy_repo_config {
                 fi
             fi
             printf "%s: ...Copy %s -> %s\n" $_func "$_certsrc" "$_certpath"
-            #sudo cp -f "$_certsrc" "$_certpath"
-            cp -f "$_certsrc" "$_certpath"
-            if [ $? -ne 0 ] ; then
-                printf "%s: ...Copy FAILED '%s'\n" $_func "$_certsrc"
-                return 1
+            if [ -f "$_certsrc" ] ; then
+                cp -f "$_certsrc" "$_certpath"
+                if [ $? -ne 0 ] ; then
+                    printf "%s: ...Copy FAILED '%s'\n" $_func "$_certsrc"
+                    return 1
+                fi
+            else
+                printf "%s: skipping %s -- not found\n" $_func "$_certpath"
             fi
         done
     done
@@ -2017,14 +2020,14 @@ function yum_download {
   _popCount=0
   for _argName in ${_pkgArgs[@]} ; do
       if [ ! -z "${_args[$_argName]}" ] && \
-	  [ "${_args[$_argName]}" != ""  ] ; then
-	  _popCount=$((_popCount+1))
+          [ "${_args[$_argName]}" != ""  ] ; then
+          _popCount=$((_popCount+1))
       fi
   done
   if [ ${_popCount} -eq  0 ] ; then
       printf "%s: ERROR Empty RPM/GROUP List! pkgArgs: %s\n" ${_func} ${_pkgArgs[@]}
       return 1
-  fi 
+  fi
 
 #  if [ -z "$_instList" ] ; then
 #      printf "%s: ERROR Empty RPM/GROUP List!\n" $_func
@@ -2057,8 +2060,8 @@ function yum_download {
   if [ "$_doCopyConfig" != "no-copy-config" ] ; then
       copy_repo_config _args
       if [ $? -ne 0 ] ; then
-	  printf "%s: copy_repo_config FAILED!\n" $_func
-	  return 1
+          printf "%s: copy_repo_config FAILED!\n" $_func
+          return 1
       fi
   fi
 
@@ -2418,7 +2421,7 @@ function rpm_download {
 #
 # $1 -  IN:  Argument Associative Array
 # $2 -  IN:  Parameter Name to use for package list
-#            defaults to 'pkglist' if not provided 
+#            defaults to 'pkglist' if not provided
 #
 # WARNING: Groups RPMs prefaced with "'" will be added exactly as
 #          such to the kickstart file
@@ -2697,41 +2700,41 @@ function copy_files {
         # Source file must exist!
         if [ ! -e $_srcpath ] ; then
             printf "%s: source file %s does not exist; check copy-sources\n" $_func $_srcpath
-	    # Check the copy-source parameters for alternate locations 
-	    _findcount=0
-	    _multi_list=""
-	    _pathlist=(${_argVals['copy-source']})
-	    for _path in ${_pathlist[@]} ; do
-		_srcpath=${MKISO_INVOKED_PATH}
-		if [ ${_src:0:1} != '/' ] ; then
-		    _srcpath=${_srcpath}"/"
+            # Check the copy-source parameters for alternate locations
+            _findcount=0
+            _multi_list=""
+            _pathlist=(${_argVals['copy-source']})
+            for _path in ${_pathlist[@]} ; do
+                _srcpath=${MKISO_INVOKED_PATH}
+                if [ ${_src:0:1} != '/' ] ; then
+                    _srcpath=${_srcpath}"/"
                 fi
-		_srcpath=${_srcpath}${_path}
-		if [ ${_src:0:1} != '/' ] ; then
-		    _srcpath=${_srcpath}"/"
+                _srcpath=${_srcpath}${_path}
+                if [ ${_src:0:1} != '/' ] ; then
+                    _srcpath=${_srcpath}"/"
                 fi
-		_srcpath=${_srcpath}${_src}
-		printf "%s: checking source %s...\n" ${_func} ${_srcpath}
-		if [ -e ${_srcpath} ] ; then
-		    _findcount=$((_findcount+1))
-		    printf "%s: found source %d %s...\n" ${_func} ${_findcount} ${_srcpath}
-		    if [ "${_multi_list}" == "" ] ; then
-			_multi_list=${_srcpath}
-		    else
-			_multi_list="${_multi_list}, ${_srcpath}"
-		    fi
-		fi
+                _srcpath=${_srcpath}${_src}
+                printf "%s: checking source %s...\n" ${_func} ${_srcpath}
+                if [ -e ${_srcpath} ] ; then
+                    _findcount=$((_findcount+1))
+                    printf "%s: found source %d %s...\n" ${_func} ${_findcount} ${_srcpath}
+                    if [ "${_multi_list}" == "" ] ; then
+                        _multi_list=${_srcpath}
+                    else
+                        _multi_list="${_multi_list}, ${_srcpath}"
+                    fi
+                fi
             done
-	    if [ ${_findcount} -eq 0 ] ; then
-		show_error "%s: copy source file '%s' not found\n" $_func $_src
-		printf "%s: copy source file '%s' not found\n" $_func $_src
-		return 1
-	    fi
-	    if [ ${_findcount} -gt 1 ] ; then
-		show_error "%s: multiple source files '%s' \n" $_func "${_multi_list}"
-		printf "%s: multiple source files '%s' \n" $_func "${_multi_list}"
-		return 1
-	    fi
+            if [ ${_findcount} -eq 0 ] ; then
+                show_error "%s: copy source file '%s' not found\n" $_func $_src
+                printf "%s: copy source file '%s' not found\n" $_func $_src
+                return 1
+            fi
+            if [ ${_findcount} -gt 1 ] ; then
+                show_error "%s: multiple source files '%s' \n" $_func "${_multi_list}"
+                printf "%s: multiple source files '%s' \n" $_func "${_multi_list}"
+                return 1
+            fi
         fi
         # Source file must exist!
         if [ -d $_srcpath ] ; then
@@ -2748,7 +2751,7 @@ function copy_files {
             fi
         fi
         if [ "${_dst}" == '.' ] ; then
-            _dst=''      
+            _dst=''
         fi
         printf "_dst=%s\n" $_dst
         # if dest path not absolute, prepend default absolute path
@@ -2756,7 +2759,7 @@ function copy_files {
         printf "dst_path1=%s\n" $_dstpath
         if [ "${_dst}" == "" ] ; then
             _dstpath=$ISO_STAGING_PATH
-	elif [ ${_dst:0:1} != '/' ] ; then
+        elif [ ${_dst:0:1} != '/' ] ; then
             _dstpath=$ISO_STAGING_PATH'/'$_dst
         fi
         printf "dst_path2=%s\n" $_dstpath
@@ -4443,17 +4446,17 @@ function build_path {
 #
 # $1: Name of global parameters associative array.
 #
-# Match pkg-rpm-regex against pkglist, pkglast parameters to extract 
+# Match pkg-rpm-regex against pkglist, pkglast parameters to extract
 # package name sub-strings transformed into a package list rpm
 # name using string in pkg-rpm-xform
 #
 # To replace regx ${BASH_REMATCH[N]} collected from the regex match
-# Use {{N}} in the transform string(pkg-rpm-xform) where N is the 
+# Use {{N}} in the transform string(pkg-rpm-xform) where N is the
 # matching substring number. {{N?}} Allows replacement by an empty match.
 #
 # Returns 0 if successful, 1 otherwise.
 #
-function build_pkg_list_rpm_name() { 
+function build_pkg_list_rpm_name() {
     local _func=${FUNCNAME}
     local _argStr=$1
     local _args
@@ -4463,10 +4466,10 @@ function build_pkg_list_rpm_name() {
         return 1
     fi
 
-    # de-serialize                                                                                                                                                                                                                                                                                                      
+    # de-serialize
     _str="declare -A _dummy=${!_argStr}"
     eval "declare -A _args="${_str#*=}
-    
+
     # converts any versions of 128T into directory paths
     _pkgList=${_args[pkglist]}
     _pkgLast=${_args[pkglast]}
@@ -4478,22 +4481,22 @@ function build_pkg_list_rpm_name() {
     outstr=''
     declare -A matches
 
-    for name in $exlist[@] ; do 
-	exprs=${!name}
-	for expr in ${exprs[@]} ; do
-	    length=${#expr}
-	    if [ $length -ge 2 ] ; then
-		last=$((length-1))
-		if [ ${expr:0:1} != '"' ] ||
-		    [ ${expr:$last} != '"' ] ; then
-		    printf "%s: Malformatted %s entry in %s -- 1st and last chars must be \"s, bailing\n" ${name} ${_func} ${pattern}
-		    return 1
-		fi
+    for name in $exlist[@] ; do
+        exprs=${!name}
+        for expr in ${exprs[@]} ; do
+            length=${#expr}
+            if [ $length -ge 2 ] ; then
+                last=$((length-1))
+                if [ ${expr:0:1} != '"' ] ||
+                    [ ${expr:$last} != '"' ] ; then
+                    printf "%s: Malformatted %s entry in %s -- 1st and last chars must be \"s, bailing\n" ${name} ${_func} ${pattern}
+                    return 1
+                fi
             else
-		printf "%s: Malformatted %s entry in %s -- 1st and last chars must be \"s, bailing\n" ${name} ${_func} ${pattern}
-		return 1
-	    fi
-	done
+                printf "%s: Malformatted %s entry in %s -- 1st and last chars must be \"s, bailing\n" ${name} ${_func} ${pattern}
+                return 1
+            fi
+        done
     done
 
     printf "%s: PATTERNS: %s\n\n" ${_func} "${pattern[@]}"
@@ -4501,84 +4504,84 @@ function build_pkg_list_rpm_name() {
     printf "%s:    SKIPS: $%s\n\n" ${_func} "${skips[@]}"
 
     for list in ${_pkgs[@]} ; do
-	_rpmList=''
-	_grpList=''
-	_copyList=''
-	pre_process_rpm_list ${list} _rpmList _grpList _copyList    
-	if [ $? -ne 0 ] ; then
-	    printf "%s: Unable to pre_process_rpm_list %s\n" ${_func} ${list}
-	    return 1
-	fi
-	for rpm in ${_rpmList[@]} ; do
-	    patndx=0
-	    skipit=1
-	    while [ $patndx -lt ${#skips[@]} ] ; do
-		pattern=${skips[$patndx]}
-		pattern=${pattern:1:-1}
-		if [[ $rpm =~ $pattern ]] ; then
-		    printf "${_func}: pattern ${pattern} skips rpm ${rpm}\n"
-		    skipit=0
-		    break
-		fi
-		patndx=$((patndx+1))
-	    done
-	    if [ $skipit -eq 0 ] ; then
-		continue
-	    fi
-	    patndx=0
-	    outstr=''
-	    matches={}
-	    while [ $patndx -lt ${#patterns[@]} ] ; do
-		pattern=${patterns[$patndx]}
-		pattern=${pattern:1:-1}
-		# printf "${_func}: TRY ${pattern} AGAINST ${rpm}\n"
-		if [[ $rpm =~ $pattern ]] ; then
-		    printf "${_func}: pattern ${pattern} matched rpm ${rpm}\n"
-		    matchndx=0
-		    while [ $matchndx -lt 10 ] ; do
-			if [ ! -z "${BASH_REMATCH[$matchndx]}" ] ; then
-			    matches[$matchndx]=${BASH_REMATCH[$matchndx]}
-			    printf "${_func}: MATCHES[$matchndx]=${matches[$matchndx]}\n"
-			fi
-			matchndx=$((matchndx+1))
-		    done
-		    break
-		fi
-		patndx=$((patndx+1))
-	    done
-	    if [ $patndx -lt ${#patterns[@]} ] ; then
-		xform=${xforms[$patndx]}
-		xform=${xform:1:-1}
-		if [ ! -z "${xform}" ] ; then
-                   outstr=$xform
-		    for key in ${!matches[@]} ; do
-		         replacement=${matches[$key]}
-		         outstr=${outstr//\{\{$key\}\}/$replacement}
-		    done
-		    key=1
-		    # replace outstr
-                    while [ $key -le 10 ] ; do
-		        outstr=${outstr//\{\{$key?\}\}/}
-			key=$((key+1))
+        _rpmList=''
+        _grpList=''
+        _copyList=''
+        pre_process_rpm_list ${list} _rpmList _grpList _copyList
+        if [ $? -ne 0 ] ; then
+            printf "%s: Unable to pre_process_rpm_list %s\n" ${_func} ${list}
+            return 1
+        fi
+        for rpm in ${_rpmList[@]} ; do
+            patndx=0
+            skipit=1
+            while [ $patndx -lt ${#skips[@]} ] ; do
+                pattern=${skips[$patndx]}
+                pattern=${pattern:1:-1}
+                if [[ $rpm =~ $pattern ]] ; then
+                    printf "${_func}: pattern ${pattern} skips rpm ${rpm}\n"
+                    skipit=0
+                    break
+                fi
+                patndx=$((patndx+1))
+            done
+            if [ $skipit -eq 0 ] ; then
+                continue
+            fi
+            patndx=0
+            outstr=''
+            matches={}
+            while [ $patndx -lt ${#patterns[@]} ] ; do
+                pattern=${patterns[$patndx]}
+                pattern=${pattern:1:-1}
+                # printf "${_func}: TRY ${pattern} AGAINST ${rpm}\n"
+                if [[ $rpm =~ $pattern ]] ; then
+                    printf "${_func}: pattern ${pattern} matched rpm ${rpm}\n"
+                    matchndx=0
+                    while [ $matchndx -lt 10 ] ; do
+                        if [ ! -z "${BASH_REMATCH[$matchndx]}" ] ; then
+                            matches[$matchndx]=${BASH_REMATCH[$matchndx]}
+                            printf "${_func}: MATCHES[$matchndx]=${matches[$matchndx]}\n"
+                        fi
+                        matchndx=$((matchndx+1))
                     done
-	        fi
-		break
-	    fi
+                    break
+                fi
+                patndx=$((patndx+1))
+            done
+            if [ $patndx -lt ${#patterns[@]} ] ; then
+                xform=${xforms[$patndx]}
+                xform=${xform:1:-1}
+                if [ ! -z "${xform}" ] ; then
+                   outstr=$xform
+                    for key in ${!matches[@]} ; do
+                         replacement=${matches[$key]}
+                         outstr=${outstr//\{\{$key\}\}/$replacement}
+                    done
+                    key=1
+                    # replace outstr
+                    while [ $key -le 10 ] ; do
+                        outstr=${outstr//\{\{$key?\}\}/}
+                        key=$((key+1))
+                    done
+                fi
+                break
+            fi
         done
-	if [[ $outstr != '' ]] ; then
-	    if [[ ! $outstr =~ .*?\{\{.*?\}\}.* ]] ; then
-	       break
-	    else
-		printf "%s: Incomplete Replacement %s !!!\n" $_func $outstr
-		exit 1
-	    fi
-	fi
+        if [[ $outstr != '' ]] ; then
+            if [[ ! $outstr =~ .*?\{\{.*?\}\}.* ]] ; then
+               break
+            else
+                printf "%s: Incomplete Replacement %s !!!\n" $_func $outstr
+                exit 1
+            fi
+        fi
     done
 
     _args[pkg_list_rpm]=$outstr
     printf "${_func}: FINAL-XFORM=${_args[pkg_list_rpm]}\n"
 
-    # serialize current array and apply to original string                                                                                                                                                                                                                                                              
+    # serialize current array and apply to original string
     _var=$(declare -p _args)
     eval "$_argStr="${_var#*=}
 
@@ -4587,14 +4590,14 @@ function build_pkg_list_rpm_name() {
 
 #
 # load_pkg_list_from_file:
-# 
+#
 # $1: Serialized parameter/argument array.
 # $2: Full path of file to load rpm list from...
 #
 # Loads the package list from $2 (usually ${_args[pkgfile]}) into
 # _args[pkglist], also appending ${_args[pkg_list_rpm]} to the list
 # as this too should ultimately be installed...
-#        
+#
 function load_pkg_list_from_file {
     local _func=${FUNCNAME}
     local _argStr=$1
@@ -4607,19 +4610,19 @@ function load_pkg_list_from_file {
     fi
 
     if [ -z "$_filepath" ] || \
-	[ "$_filepath" == "" ] ; then
-	printf "%s: No filepath provided\n" ${_func} 
-	return 1
+        [ "$_filepath" == "" ] ; then
+        printf "%s: No filepath provided\n" ${_func}
+        return 1
     fi
 
     if [ ! -f "$_filepath" ] ; then
-	printf "%s: %s missing\n" ${_func} ${_filepath}
-	return 1
-    fi 
+        printf "%s: %s missing\n" ${_func} ${_filepath}
+        return 1
+    fi
 
    _str="declare -A _dummy=${!_argStr}"
     eval "declare -A _args="${_str#*=}
-    
+
     printf "%s: Loading package list from %s\n" ${_func} "${_filepath}"
 
     tmpPkgLst=""
@@ -4631,31 +4634,31 @@ function load_pkg_list_from_file {
         fi
         if [ ${line:0:1} == "#" ] ; then
             continue
-        fi 
-	printf "...Adding %s from %s\n" $line ${_filepath}
-	if [ "${tmpPkgList}" == "" ] ; then
-	    tmpPkgList=${line}
-	else 
-	    tmpPkgList="${tmpPkgList} ${line}"
-	fi
+        fi
+        printf "...Adding %s from %s\n" $line ${_filepath}
+        if [ "${tmpPkgList}" == "" ] ; then
+            tmpPkgList=${line}
+        else
+            tmpPkgList="${tmpPkgList} ${line}"
+        fi
     done < ${_filepath}
 
     if [ -z "${_args[pkglist]}" ] || \
         [ "${_args[pkglist]}" == '' ] ; then
-	_args[pkglist]="${tmpPkgList}"
-    else 
-	_args[pkglist]="${_args[pkglist]} ${tmpPkgList}"
+        _args[pkglist]="${tmpPkgList}"
+    else
+        _args[pkglist]="${_args[pkglist]} ${tmpPkgList}"
     fi
 
     if [ ! -z "${_args[pkg_list_ks]}" ] && \
         [ "${_args[pkg_list_ks]}" != '' ] ; then
-	_args[pkg_list_ks]="${_args[pkg_list_ks]} ${_args[pkg_list_rpm]}"
+        _args[pkg_list_ks]="${_args[pkg_list_ks]} ${_args[pkg_list_rpm]}"
     fi
 
     # If it's set, add in the derived rpm pattern
     if [ ! -z "${_args[pkg_list_rpm]}" ] && \
         [ "${_args[pkg_list_rpm]}" != '' ] ; then
-	_args[pkglist]="${_args[pkglist]} ${_args[pkg_list_rpm]}"
+        _args[pkglist]="${_args[pkglist]} ${_args[pkg_list_rpm]}"
     fi
 
     # serialize current array and apply to original string
@@ -4836,7 +4839,7 @@ function default_mkiso_values {
    # By default, prompt before installing tools
    apply_arg_default _aStr prompt-for-tools "on"
 
-   # Build file where the list of rpms will be installed to... 
+   # Build file where the list of rpms will be installed to...
    # yum_install_root can't be used as no de-serialization has been done yet
    build_file _aStr pkg-rpm-path $YUM_INSTALL_PATH
 
@@ -4968,40 +4971,40 @@ function do_cmd_create {
     MKISO_VALS[pkg_list_ks]=${MKISO_VALS[pkglist]}
 
         printf "${TERMINAL_COLOR_GREEN}%.s=" % {1..79}
-        printf "\n" 
-	dump_assoc MKISO_VALS
+        printf "\n"
+        dump_assoc MKISO_VALS
         printf "%.s=" % {1..79}
         printf "${TERMINAL_STYLE_NORMAL}\n"
 
     if [ -z ${MKISO_VALS[pkgfile]} ] && \
-	[ ! -z ${MKISO_VALS[pkg_list_rpm]} ] && \
-	[ ${MKISO_VALS[pkg_list_rpm]} != '' ] ; then
-	yum_download MKISO_VALS 'install' 'copy-config' 'pkg_list_rpm'
-	exit_on_fail "Yum Install" $?
-	aname_to_string MKISO_VALS _mstr
-	load_pkg_list_from_file _mstr ${MKISO_VALS[pkg-rpm-path]}
-	exit_on_fail "Load Package List from File" $?
-	eval "declare -A MKISO_VALS"=${_mstr}
+        [ ! -z ${MKISO_VALS[pkg_list_rpm]} ] && \
+        [ ${MKISO_VALS[pkg_list_rpm]} != '' ] ; then
+        yum_download MKISO_VALS 'install' 'copy-config' 'pkg_list_rpm'
+        exit_on_fail "Yum Install" $?
+        aname_to_string MKISO_VALS _mstr
+        load_pkg_list_from_file _mstr ${MKISO_VALS[pkg-rpm-path]}
+        exit_on_fail "Load Package List from File" $?
+        eval "declare -A MKISO_VALS"=${_mstr}
 
         printf "${TERMINAL_COLOR_BLUE}%.s=" % {1..79}
-        printf "\n" 
-	dump_assoc MKISO_VALS
+        printf "\n"
+        dump_assoc MKISO_VALS
         printf "%.s=" % {1..79}
         printf "${TERMINAL_STYLE_NORMAL}\n"
-	
-	# purge required, otherwise required rpms will not be downloaded :-(
-	purge_mkiso_dir ${YUM_INSTALL_PATH} ${_func} 'sudo'
-	exit_on_fail "Failed to Purge Install Root..." $?
-	mkdir -p ${YUM_INSTALL_PATH}
-	exit_on_fail "Failed to Create Install Root..." $?
+
+        # purge required, otherwise required rpms will not be downloaded :-(
+        purge_mkiso_dir ${YUM_INSTALL_PATH} ${_func} 'sudo'
+        exit_on_fail "Failed to Purge Install Root..." $?
+        mkdir -p ${YUM_INSTALL_PATH}
+        exit_on_fail "Failed to Create Install Root..." $?
         touch "${YUM_INSTALL_PATH}/${MKISO_WORKSPACE_ID}"
-	exit_on_fail "Failed to Unprotect Install Root..." $?
+        exit_on_fail "Failed to Unprotect Install Root..." $?
     else
         printf "${TERMINAL_COLOR_BLUE}%.s=" % {1..79}
-        printf "\n" 
-	printf "PACKAGE LIST NOT LOADED FROM RPM... Continuing\n"
+        printf "\n"
+        printf "PACKAGE LIST NOT LOADED FROM RPM... Continuing\n"
         printf "%.s=" % {1..79}
-        printf "${TERMINAL_STYLE_NORMAL}\n" 
+        printf "${TERMINAL_STYLE_NORMAL}\n"
     fi
 
     yum_download MKISO_VALS 'no-install' ${_copy_config}

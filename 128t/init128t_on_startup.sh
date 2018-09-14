@@ -16,6 +16,7 @@
 GETTY_TYPE='getty'
 LOCAL_REPO_DIR=/etc/128technology/Packages
 YUM_CERT_FILE=/etc/pki/128technology/release.pem
+TABLE_CREATOR=/usr/bin/t128TableCreator
 OVERRIDE_TTY="{{ISO_OVERRIDE_TTY}}"
 if [ -z "$OVERRIDE_TTY" ] ; then
     OVERRIDE_TTY="1"
@@ -48,7 +49,10 @@ status=$?
 
 # Run the table creator when kickstart/anaconda do the 128T install
 # as the Cassandra JVM cannot be started during the post-install scripts
-if [ ! -d ${LOCAL_REPO_DIR} -a $status -eq 0 ] ; then
+# After 4.0 cassandra is no longer used.
+if [ ! -d ${LOCAL_REPO_DIR} ] && \
+   [ -x ${TABLE_CREATOR} ] && \
+   [ $status -eq 0 ] ; then
     # First add a non-loopback /etc/128technology/global.init IP for this
     # node to /etc/hosts (remove this clause if/when t128Tablecreator
     # performs this task).
@@ -63,7 +67,7 @@ if [ ! -d ${LOCAL_REPO_DIR} -a $status -eq 0 ] ; then
          fi
     fi
  
-    /usr/bin/t128TableCreator -v 2>&1 | \\
+    ${TABLE_CREATOR} -v 2>&1 | \\
 	dialog --cr-wrap --colors --title "128T Statistics Table Creator" \\
         --programbox 16 40
     status=$?
