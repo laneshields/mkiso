@@ -3210,7 +3210,7 @@ function move_rpms_to_staging {
            _grouparg=''
            _target_dir=`dirname $_path`
             printf "%s: Update repodata for %s\n" $_func $_target_dir
-           _gfiles=(`ls $_path/*comps*.xml`)
+           _gfiles=(`ls $_path/*minimal*comps.xml`)
            if [ ${#_gfiles[@]} -gt 1 ] ; then
                printf "%s: ERROR More than 1 comps.xml (%d) file in %s!!!\n" $_func  ${#_gfiles[@]} $_path
                for _file in ${_gfiles[@]} ; do
@@ -3251,7 +3251,7 @@ function move_rpms_to_staging {
        fi
        # Using extglob, leave the comps file behind if it exists
        rm -rf $_iso_staging/repodata/!(*comps*.xml)
-       _gfiles=(`ls $_iso_staging/repodata/*comps*.xml`)
+       _gfiles=(`ls $_iso_staging/repodata/*minimal*comps*.xml`)
        if [ ${#_gfiles[@]} -gt 1 ] ; then
            printf "%s: ERROR More than 1 comps.xml (%d) file in %s!!!\n" $_func ${#_gfiles[@]} $_path
            for _file in ${_gfiles[@]} ; do
