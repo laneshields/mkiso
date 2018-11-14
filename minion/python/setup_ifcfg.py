@@ -68,7 +68,7 @@ def config_wired_intf(node=None, count=0):
     ifcfg_line += "BOOTPROTO=dhcp\n"
     ifcfg_line += "DEFROUTE=yes\n"
     ifcfg_line += "PEERDNS=no\n"
-    ifcfg_line += "PEERROUTES=no\n"
+    ifcfg_line += "PEERROUTES=yes\n"
     ifcfg_line += "HWADDR=%s\n" % mac
     ifcfg_line += "ONBOOT=yes\n"
     ifcfg_line += "DNS1=8.8.8.8\n"
